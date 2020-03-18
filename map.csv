@@ -1,0 +1,17 @@
+﻿Sample_ID,Site,Size_fraction,Type,OM (%),NO3-N (ppm),NH4-N (ppm),Nitrogen (%)
+MRC1,MRC,2,sample,,,,
+MRC2,MRC,1,sample,2.6,14,4.1,0.09
+MRC3,MRC,0.5,sample,1.8,12.2,4,0.07
+MRC4,MRC,0.25,sample,1.3,4.6,3.2,0.05
+MRC5,MRC,0.18,sample,1.9,9.2,4.7,0.07
+MRC6,MRC,0.056,sample,2.4,9.3,4.3,0.1
+MRC7,MRC,0.05,sample,3.4,18.8,5.5,0.15
+SVERC1,SVERC,2,sample,1.6,12.5,6.9,0.12
+MRC_neg,MRC,,control,,,,
+SVERC2,SVERC,1,sample,2.5,2.8,4.8,0.1
+SVERC3,SVERC,0.5,sample,2.1,2.4,4.2,0.1
+SVERC4,SVERC,0.25,sample,2,2.2,3.6,0.07
+SVERC5,SVERC,0.18,sample,2.3,2.3,5.2,0.08
+SVERC6,SVERC,0.056,sample,3,3.2,5.1,0.13
+SVERC7,SVERC,0.05,sample,3.5,8.7,6.3,0.16
+SVERC_neg,SVERC,,control,,,,
