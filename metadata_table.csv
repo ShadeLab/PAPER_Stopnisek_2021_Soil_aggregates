@@ -1,4 +1,4 @@
-sample-id,Site,Size_fraction,Replicate,Type,OM,NO3,NH4,N
+OTUID,Site,Size_fraction,Replicate,Type,OM,NO3,NH4,N
 M.005.a.S53,MRC,0.056,a,sample,2.4,9.3,4.3,0.1
 M.005.b.S39,MRC,0.056,b,sample,2.4,9.3,4.3,0.1
 M.005.c.S47,MRC,0.056,c,sample,2.4,9.3,4.3,0.1
