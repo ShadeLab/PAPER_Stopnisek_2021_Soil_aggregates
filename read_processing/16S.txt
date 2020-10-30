@@ -1,0 +1,77 @@
+# QIIME2 for processing reads from soil aggregates
+# Following the pipeline descibed here: https://curr-protoc-bioinformatics.qiime2.org/
+
+
+#Use the manifest file to import the sequences into QIIME 2
+qiime tools import \
+--type 'SampleData[SequencesWithQuality]' \
+--input-path manifest_file.tsv \
+--output-path single-end-demux.qza \
+--input-format SingleEndFastqManifestPhred33V2
+
+#Create a summary of the demultiplexed artifact
+qiime demux summarize \
+--i-data single-end-demux.qza \
+--o-visualization demux.qzv
+
+#Apply an initial quality filtering process based on quality scores
+qiime quality-filter q-score \
+    --i-demux single-end-demux.qza \
+    --o-filtered-sequences demux-se-filtered.qza \
+    --o-filter-stats demux-filter-stats.qza
+	
+#Apply the Deblur workflow using the denoise-16S action	
+qiime deblur denoise-16S \
+    --i-demultiplexed-seqs demux-se-filtered.qza \
+    --p-trim-length 240 \
+    --p-sample-stats \
+    --p-jobs-to-start 28 \
+    --o-stats deblur-stats.qza \
+    --o-representative-sequences rep-seqs-deblur.qza \
+    --o-table table-deblur.qza
+	
+#Create a visualization summary of the DeblurStats
+qiime deblur visualize-stats \
+    --i-deblur-stats deblur-stats.qza \
+    --o-visualization deblur-stats.qzv
+
+qiime feature-table tabulate-seqs \
+    --i-data rep-seqs-deblur.qza \
+    --o-visualization rep-seqs-deblur.qzv
+
+qiime feature-table summarize \
+    --i-table table-deblur.qza \
+    --m-sample-metadata-file metadata.txt \
+    --o-visualization table-deblur.qzv
+
+#Assign taxonomy
+qiime feature-classifier classify-sklearn \
+  --i-classifier silva-138-99-515-806-nb-classifier.qza \
+  --i-reads rep-seqs-deblur.qza \
+  --o-classification taxonomy.qza
+
+qiime metadata tabulate \
+  --m-input-file taxonomy.qza \
+  --o-visualization taxonomy.qzv
+
+
+# 1 Export OTU table
+# - phyloseq => replace with where you'd like to output directory
+
+qiime tools export \
+  --input-path table-deblur.qza \
+  --output-path phyloseq
+
+# OTU tables exports as feature-table.biom so convert to .tsv
+# - Change -i and -o paths accordingly
+biom convert \
+  -i phyloseq/feature-table.biom \
+  -o phyloseq/otu_table.txt \
+  --to-tsv
+  
+# Manually change #OTUID to OTUID
+
+# 2 Export taxonomy table
+qiime tools export \
+  --input-path taxonomy_job.qza \
+  --output-path phyloseq
