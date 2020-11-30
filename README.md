@@ -1,8 +1,8 @@
 # Soil particle size, soil chemistry and ammonia oxydizers
 
-This is the repository for the project "Ammonia oxydizing communities are more impacted by the soil nitrogen species than by the soil particle size".
+This is the repository for the project *"Ammonia oxydizing communities are more impacted by the soil nitrogen species than by the soil particle size"*.
 
-We hypothesized that the co-occurrence of ammonia oxydizing archaea (AOB) and ammonia oxydizing bacteria (AOB) in soil environment is due to the soil chemical and size heterogeneity which they preferentially and selectively occupy.
+We hypothesized that the co-occurrence of ammonia oxydizing archaea (__AOA__) and ammonia oxydizing bacteria (__AOB__) in soil environment is due to the soil chemical and size heterogeneity which they preferentially and selectively occupy.
  
 
 We found that:
