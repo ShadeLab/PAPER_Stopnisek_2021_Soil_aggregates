@@ -1,0 +1,118 @@
+---
+title: "AOB amoA amplicon read processing overview"
+output: html_notebook
+---
+
+This is the reported staistics from processing the AOB amoA amplicons using DADA2. For generating amplicon we followed protocol described by Aigle et al., [2019](https://environmentalmicrobiome.biomedcentral.com/articles/10.1186/s40793-019-0342-6). 
+
+We modified the published pipline and it consists of following steps:
+
++ removing primers using cutadapt
++ using DADA2 in R for read processing and read denoising (generating ASV)
++ translating ASV read (comparing and matching to the reading frame of references) to remove contamination and proteins with stop codons
++ generating AA(amino acid) ASVs
+
+*What modification were made?*
+
+1. The proposed workflow by Aigle et al. used trimming off primers by cutting the exact number of bp from each read. In our case it turned out that not all reads had the full lenght primers. Toavoid issues when translating reads we decided to use cutadapt instead which removed precisely th
+
+### Primer trimming
+To remove primers from reads we used cutadapt (v2.1) on MSU HPCC cluster with following commands:
+```{}
+for i in *R1_001.fastq.gz
+
+do
+	sample=${i%_R1_001.fastq.gz}
+
+	cutadapt -g ^GGGGTTTCTACTGGTGGT -G ^CCCCTCKGSAAAGCCTTCTTC --discard-untrimmed -o ${dir}/cutadapt_before_DADA2/${sample}_trim_R1.fq -p ${dir}/cutadapt_before_DADA2/${sample}_trim_R2.fq ${dir}/fastq/${sample}_R1_001.fastq.gz ${dir}/fastq/${sample}_R2_001.fastq.gz >> ${dir}/cutadapt_primer_trimming_stats.txt 2>&1
+	
+done
+```
+The script is provided also in the repositoy under the name stepI_trim_primer.txt.
+
+### Read filtering and read denoising
+DADA2 was used for processing reads - quality control, trimming and denoising. 
+
+The following arguments and conditions were used:
+```{r}
+library(dada2)
+library(phyloseq)
+
+path="~/amoA_MiSeq_sequencing/AOBpart/cutadapt_before_DADA2"
+outpath="/mnt/research/ShadeLab/WorkingSpace/Stopnisek/Soil_aggregates"
+
+#' Forward and reverse fastq filenames have format: SAMPLENAME_trim_R1.fq and SAMPLENAME_trim_R2.fq
+fnFs <- sort(list.files(path, pattern="_trim_R1.fq", full.names = TRUE)) #pattern can be modify
+fnRs <- sort(list.files(path, pattern="_trim_R2.fq", full.names = TRUE)) #pattern can be modify
+if(length(fnFs) != length(fnRs)) stop("Forward and reverse files do not mach")
+
+#' Extract sample names, assuming filenames have format: SAMPLENAME_XXX.fastq
+sample.names <- sapply(strsplit(basename(fnFs), "_R"), `[`, 1)
+
+#' Place filtered files in filtered/ subdirectory
+filtFs <- file.path(outpath, "filtered_240", paste0(sample.names, "_filt_F.fastq.gz"))
+filtRs <- file.path(outpath, "filtered_240", paste0(sample.names, "_filt_R.fastq.gz"))
+
+#' Set truncLen and minLen according to your dataset
+out <- dada2::filterAndTrim(fnFs, filtFs, fnRs, filtRs, truncLen=c(240,240), 
+                            minLen = 240, truncQ=2, maxN=0, maxEE=c(2,2), compress=TRUE, 
+                            rm.phix=TRUE,  multithread=TRUE)
+
+errF <- dada2::learnErrors(filtFs, multithread=TRUE)
+errR <- dada2::learnErrors(filtRs, multithread=TRUE)
+
+#' Denoising forward and reverse reads
+dadaFs <- dada2::dada(filtFs, err=errF, multithread=TRUE)
+dadaRs <- dada2::dada(filtRs, err=errR, multithread=TRUE)
+
+#' Merging denoised reads
+mergers <- dada2::mergePairs(dadaFs, filtFs, dadaRs, filtRs, verbose=TRUE)
+
+#' Generating ASV table
+seqtab <- dada2::makeSequenceTable(mergers, orderBy = "abundance")
+
+#' Removing ASVs with sequence length below 449bp and above 453bp
+seqtab2 <- seqtab[,nchar(colnames(seqtab)) %in% 449:453] 
+
+#' Remove chimera
+seqtab.nochim <- dada2::removeBimeraDenovo(seqtab2, method="consensus", multithread=TRUE, verbose=TRUE)
+
+```
+
+Output of the upper part is represented in this table:
+```{r,warning=FALSE}
+track %>%
+  gt(rowname_col = "sampleID") %>%
+  tab_stubhead(label = "Sample ID") %>%
+  tab_header(
+    title = md("**Read processing Statistics**"),
+    subtitle = "Using DADA2 package in R and amoA AOB amplicons") %>%
+  tab_row_group(
+    group = "Montcalm",
+    rows = 1:21) %>%
+  tab_row_group(
+    group = "Saginaw Valley",
+    rows = 22:42) %>%
+  cols_label(
+    input = "Input",
+    filtered = "Quality\nfiltered",
+    denoisedF = "Denoised forward",
+    denoisedR = "Denoised reverse",
+    merged = "Merged",
+    nonchim = "Without chimera")
+```
+
+
+### Translation of ASV reads
+First few ASV nucleotide sequnces were aligned to *Nitrosomonas europaea* (ENA|L08050|L08050.1) and *Nitrosospira multiformis* ATCC 25196 (NC_007614.1:c3171159-3170335) amoA sequence (see:AOB_ref_AA_alignment.fa) to understand where reading frmaes start in the ASVs. Since ASV reads are offset by 2bp we used [seqkit](https://bioinf.shenwei.me/seqkit/) to translate reads using 3rd bp as the strating point.
+
+Command is following:
+
+`seqkit translate -T 11 -f 3 ASV.fa --clean > ASV_AA.fa`
+
+where -T 11 represent frame usage for bacteria, -f 3 start from 3rd base in the sequence, --clean removes the stop codon symbol * into X.
+
+For the downstream analysis we converted .fa to .tab using `seqkit fx2tab` comand.
+
+The ASV1021 and ASV1059 showed to be some other then amoA since their AA composition is very dissimilar to the rest. These and al reads containing stop codons were removed in later stages. 
+

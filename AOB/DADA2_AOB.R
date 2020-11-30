@@ -139,9 +139,8 @@ head(AOB_table)
 
 AAaob=read.table("Documents/git/SoilAggregates/ASV_AA_AOB.tab", header=F)
 names(AAaob)[1]='OTU'
-head(AAaob)
 
-library(tidyverse)
+
 AA_aob_taxa=AAaob %>% 
   left_join(AOB_table) %>%
   pivot_longer(!c(V2, OTU, ), names_to = "sampleID", values_to = "count") %>%
@@ -150,8 +149,6 @@ AA_aob_taxa=AAaob %>%
   dplyr::filter(!grepl("X", V2)) %>%
   pivot_wider(names_from = sampleID,
               values_from = count) 
-
-names(AAaob)
 
 No_ASV_asAA = AAaob %>%
   group_by(V2) %>%
