@@ -4,7 +4,6 @@ library(microbiome)
 library(reshape2)
 library(ggpubr)
 library(broom)
-#library(ggfortify)
 library(dplyr)
 library(phyloseq)
 library(decontam)
@@ -14,165 +13,166 @@ library(indicspecies)
 library(lemon)
 library(ggalluvial)
 library(pheatmap)
-#library(metagMisc)
 library(metagenomeSeq)
 library(qiime2R)
+library(metagMisc)
+
 
 setwd('~/Documents/git/SoilAggregates/')
-
-otu <- read.table('R1_OTU_table.txt', sep='\t', header=T, row.names=1)
-map <- read.csv('map.csv', row.names=1)
-
-OTU=otu_table(as.matrix(otu), taxa_are_rows = T)
-MAP=sample_data(map)
-otuPhyloseq=phyloseq(MAP, OTU)
-
-sample_data(otuPhyloseq)$is.neg <- sample_data(otuPhyloseq)$Type == "control"
-
-contamdf.prev <- isContaminant(otuPhyloseq, method="prevalence", neg="is.neg", threshold=0.5)
-keepOTU <- rownames(contamdf.prev[contamdf.prev$contaminant=='FALSE',])
-omit.OTUs <- rownames(contamdf.prev[contamdf.prev$contaminant=='TRUE',])
-
-otuPhyloseq_filt_decont <- prune_taxa(keepOTU,otuPhyloseq)
-otuPhyloseq_filt_decont_samp <- subset_samples(otuPhyloseq_filt_decont, Type != 'control')
-
-write_phyloseq(otuPhyloseq_filt_decont_samp, type='METADATA', path=".")
-map_final <- read.csv('metadata_table.csv')
-
-otu_final <- phyloseq_to_df(otuPhyloseq_filt_decont_samp, addtax=F, addtot=T)
-otu_final <- otu_final[complete.cases(otu_final),]
-rownames(otu_final) <- otu_final$OTU
-otu_final$Total <- NULL
-otu_final$OTU <- NULL
-
-otu_final <- otu_final[,order(colnames(otu_final))]
-map_final=map_final[order(map_final$id),]
-colnames(otu_final)==map_final$id
-
-set.seed(012)
-
-OTU.rare <- t(rrarefy(t(otu_final), min(colSums(otu_final)))) 
-
-rel.abun.all <- decostand(OTU.rare, method = 'total', MARGIN = 2)
-
-set.seed(014)
-map <- map_final
-otu.BC <- vegdist(t(OTU.rare), method="bray")
-otu.J <- vegdist(t(OTU.rare), method="jaccard")
-otu.bc.pcoa <- cmdscale(otu.BC, eig=T)
-otu.j.pcoa <- cmdscale(otu.J, eig=T)
-
-map$Axis1.BC <- otu.bc.pcoa$points[,1]
-map$Axis2.BC <- otu.bc.pcoa$points[,2]
-map$Axis1.J <- otu.j.pcoa$points[,1]
-map$Axis2.J <- otu.j.pcoa$points[,2]
-ax1.bc.otu <- otu.bc.pcoa$eig[1]/sum(otu.bc.pcoa$eig)
-ax2.bc.otu <- otu.bc.pcoa$eig[2]/sum(otu.bc.pcoa$eig)
-ax1.j.otu <- otu.j.pcoa$eig[1]/sum(otu.j.pcoa$eig)
-ax2.j.otu <- otu.j.pcoa$eig[2]/sum(otu.j.pcoa$eig)
-
-
-pcoa.BC <- ggplot(map, aes(x=Axis1.BC, y=Axis2.BC)) +
-  theme_classic() +
-  geom_point(aes(col=Site, alpha=Size_fraction), size=4)+
-  scale_color_manual(values = c("#009e73", "#0072b2")) + 
-  scale_alpha_continuous(range = c(0.1, 1)) + 
-  theme(legend.position = c(.5,.5),
-        legend.background = element_rect(fill="transparent"),
-        legend.text = element_text(size=8),
-        legend.title = element_text(size=10))+
-  labs(x=paste('PCoA1 (',100*round(ax1.bc.otu,3),'%)',sep=''),y=paste('PCoA2 (',100*round(ax2.bc.otu,3),'%)', sep=''), 
-       alpha='Size (mm)', title='Bray-Curtis')
-
-pcoa.J <- ggplot(map, aes(x=Axis1.J, y=Axis2.J)) +
-  theme_classic() +
-  geom_point(aes(col=Site, alpha=Size_fraction), size=4)+
-  scale_color_manual(values = c("#009e73", "#0072b2")) + 
-  scale_alpha_continuous(range = c(0.1, 1)) + 
-  theme(legend.position = 'none',
-        legend.background = element_rect(fill="transparent"),
-        legend.text = element_text(size=8),
-        legend.title = element_text(size=10))+
-  labs(x=paste('PCoA1 (',100*round(ax1.j.otu,3),'%)',sep=''),y=paste('PCoA2 (',100*round(ax2.j.otu,3),'%)', sep=''), 
-       alpha='Size (mm)', title="Jaccard")
-
-ggarrange(ggarrange(pcoa.BC, pcoa.J, 
-                    labels = c("A", "B"), ncol = 2)) %>%
-  ggexport(filename = "PCoA.pdf", width = 5, height = 3)
-
-
-s <- specnumber(OTU.rare,MARGIN=2)
-h <- vegan::diversity(t(OTU.rare), "shannon")
-pielou=h/log(s)
-
-map$Richness <- s
-map$Shannon <- h
-map$Pielou <- pielou 
-
-ggplot(map, aes(x=as.factor(Size_fraction),y=Richness, fill=Site)) +
-  geom_bar(stat = 'identity', position = 'dodge') +
-  scale_fill_manual(values = c("#009e73", "#0072b2")) + 
-  labs(x='Size (mm)', y='Richness') +
-  theme_classic()
-
-library(gplots)
-#For MRF
-head(MRC1)
-otu_venn <- OTU.rare
-MRC_otu <- rel.abun.all[,map$Site=='MRC']
-MRC_otu <- MRC_otu[rowSums(MRC_otu)>0,]
-SVERC_otu <- otu_venn[,map$Site=='SVERC']
-SVERC_otu <- SVERC_otu[rowSums(SVERC_otu)>0,]
-
-MRC1 <- MRC_otu[,"MRC1"]
-MRC1_otu <- data.frame(otu=names(MRC1), MRC1) %>%
-  filter(MRC1>0)
-MRC7 <- MRC_otu[,"MRC7"]
-MRC7_otu <- data.frame(otu = names(MRC7), MRC7) %>%
-  filter(MRC7>0)
-MRC4 <- MRC_otu[,"MRC4"]
-MRC4_otu <- data.frame(otu = names(MRC4), MRC4) %>%
-  filter(MRC4>0)
-
-MRC1_all <- MRC_otu[as.character(MRC1_otu$otu),]
-MRC7_all <- MRC_otu[as.character(MRC7_otu$otu),]
-MRC4_all <- MRC_otu[as.character(MRC4_otu$otu),]
-
-data.frame(otu=rownames(MRC_otu), MRC_otu) %>%
-  gather(id, abun, -otu) %>%
-  left_join(map) %>%
-  mutate(abun=if_else(abun>0, 1, 0),
-         group=if_else(otu %in% rownames(MRC1_all), "2mm", "other")) %>%
-  group_by(id, Size_fraction, group) %>%
-  summarise(count_otu=sum(abun)) %>%
-  ggplot(aes(x=as.factor(Size_fraction), y=count_otu, alluvium=group)) +
-  geom_alluvium(aes(fill=group, col=group))+
-  theme_classic()+
-  labs(y='#OTUs', x='Size (mm)')
-
-data.frame(otu=rownames(MRC_otu), MRC_otu) %>%
-  gather(id, abun, -otu) %>%
-  left_join(map) %>%
-  mutate(abun=if_else(abun>0, 1, 0),
-         group=if_else(otu %in% rownames(MRC7_all), "<0.056mm", "other")) %>%
-  group_by(id, Size_fraction, group) %>%
-  summarise(count_otu=sum(abun)) %>%
-  ggplot(aes(x=as.factor(Size_fraction), y=count_otu, alluvium=group)) +
-  geom_alluvium(aes(fill=group, col=group))+
-  theme_classic()+
-  labs(y='#OTUs', x='Size (mm)')
-
-library(pheatmap)
-
-MRC_abun <- OTU.rare[,map$Site=='MRC']
-MRC_otu_v1 <- MRC_otu[rowSums(MRC_otu)>0.001,]
-pheatmap(as.matrix(MRC_otu_v1), cluster_rows = T, cluster_cols = F, cutree_rows = 7, scale='row',show_rownames = F)
-
-S.rel.abun.all <- decostand(SVERC_otu, method = 'total', MARGIN = 2)
-
-SVERC_otu_v1 <- S.rel.abun.all[rowSums(S.rel.abun.all)>0.0001,]
-pheatmap(as.matrix(SVERC_otu_v1), cluster_rows = T, cluster_cols = F, cutree_rows = 7, scale='row',show_rownames = F)
-
+#######################
+# otu <- read.table('R1_OTU_table.txt', sep='\t', header=T, row.names=1)
+# map <- read.csv('metadata_table.csv', row.names=1)
+# 
+# OTU=otu_table(as.matrix(otu), taxa_are_rows = T)
+# MAP=sample_data(map)
+# otuPhyloseq=phyloseq(MAP, OTU)
+# 
+# sample_data(otuPhyloseq)$is.neg <- sample_data(otuPhyloseq)$Type == "control"
+# 
+# contamdf.prev <- isContaminant(otuPhyloseq, method="prevalence", neg="is.neg", threshold=0.5)
+# keepOTU <- rownames(contamdf.prev[contamdf.prev$contaminant=='FALSE',])
+# omit.OTUs <- rownames(contamdf.prev[contamdf.prev$contaminant=='TRUE',])
+# 
+# otuPhyloseq_filt_decont <- prune_taxa(keepOTU,otuPhyloseq)
+# otuPhyloseq_filt_decont_samp <- subset_samples(otuPhyloseq_filt_decont, Type != 'control')
+# 
+# #write_phyloseq(otuPhyloseq_filt_decont_samp, type='METADATA', path=".")
+# map_final <- read.csv('metadata_table.csv')
+# 
+# otu_final <- phyloseq_to_df(otuPhyloseq_filt_decont_samp, addtax=F, addtot=T)
+# otu_final <- otu_final[complete.cases(otu_final),]
+# rownames(otu_final) <- otu_final$OTU
+# otu_final$Total <- NULL
+# otu_final$OTU <- NULL
+# 
+# otu_final <- otu_final[,order(colnames(otu_final))]
+# map_final=map_final[order(map_final$id),]
+# colnames(otu_final)==map_final$id
+# 
+# set.seed(012)
+# 
+# OTU.rare <- t(rrarefy(t(otu_final), min(colSums(otu_final)))) 
+# 
+# rel.abun.all <- decostand(OTU.rare, method = 'total', MARGIN = 2)
+# 
+# set.seed(014)
+# map <- map_final
+# otu.BC <- vegdist(t(OTU.rare), method="bray")
+# otu.J <- vegdist(t(OTU.rare), method="jaccard")
+# otu.bc.pcoa <- cmdscale(otu.BC, eig=T)
+# otu.j.pcoa <- cmdscale(otu.J, eig=T)
+# 
+# map$Axis1.BC <- otu.bc.pcoa$points[,1]
+# map$Axis2.BC <- otu.bc.pcoa$points[,2]
+# map$Axis1.J <- otu.j.pcoa$points[,1]
+# map$Axis2.J <- otu.j.pcoa$points[,2]
+# ax1.bc.otu <- otu.bc.pcoa$eig[1]/sum(otu.bc.pcoa$eig)
+# ax2.bc.otu <- otu.bc.pcoa$eig[2]/sum(otu.bc.pcoa$eig)
+# ax1.j.otu <- otu.j.pcoa$eig[1]/sum(otu.j.pcoa$eig)
+# ax2.j.otu <- otu.j.pcoa$eig[2]/sum(otu.j.pcoa$eig)
+# 
+# 
+# pcoa.BC <- ggplot(map, aes(x=Axis1.BC, y=Axis2.BC)) +
+#   theme_classic() +
+#   geom_point(aes(col=Site, alpha=Size_fraction), size=4)+
+#   scale_color_manual(values = c("#009e73", "#0072b2")) + 
+#   scale_alpha_continuous(range = c(0.1, 1)) + 
+#   theme(legend.position = c(.5,.5),
+#         legend.background = element_rect(fill="transparent"),
+#         legend.text = element_text(size=8),
+#         legend.title = element_text(size=10))+
+#   labs(x=paste('PCoA1 (',100*round(ax1.bc.otu,3),'%)',sep=''),y=paste('PCoA2 (',100*round(ax2.bc.otu,3),'%)', sep=''), 
+#        alpha='Size (mm)', title='Bray-Curtis')
+# 
+# pcoa.J <- ggplot(map, aes(x=Axis1.J, y=Axis2.J)) +
+#   theme_classic() +
+#   geom_point(aes(col=Site, alpha=Size_fraction), size=4)+
+#   scale_color_manual(values = c("#009e73", "#0072b2")) + 
+#   scale_alpha_continuous(range = c(0.1, 1)) + 
+#   theme(legend.position = 'none',
+#         legend.background = element_rect(fill="transparent"),
+#         legend.text = element_text(size=8),
+#         legend.title = element_text(size=10))+
+#   labs(x=paste('PCoA1 (',100*round(ax1.j.otu,3),'%)',sep=''),y=paste('PCoA2 (',100*round(ax2.j.otu,3),'%)', sep=''), 
+#        alpha='Size (mm)', title="Jaccard")
+# 
+# ggarrange(ggarrange(pcoa.BC, pcoa.J, 
+#                     labels = c("A", "B"), ncol = 2)) %>%
+#   ggexport(filename = "PCoA.pdf", width = 5, height = 3)
+# 
+# 
+# s <- specnumber(OTU.rare,MARGIN=2)
+# h <- vegan::diversity(t(OTU.rare), "shannon")
+# pielou=h/log(s)
+# 
+# map$Richness <- s
+# map$Shannon <- h
+# map$Pielou <- pielou 
+# 
+# ggplot(map, aes(x=as.factor(Size_fraction),y=Richness, fill=Site)) +
+#   geom_bar(stat = 'identity', position = 'dodge') +
+#   scale_fill_manual(values = c("#009e73", "#0072b2")) + 
+#   labs(x='Size (mm)', y='Richness') +
+#   theme_classic()
+# 
+# library(gplots)
+# #For MRF
+# head(MRC1)
+# otu_venn <- OTU.rare
+# MRC_otu <- rel.abun.all[,map$Site=='MRC']
+# MRC_otu <- MRC_otu[rowSums(MRC_otu)>0,]
+# SVERC_otu <- otu_venn[,map$Site=='SVERC']
+# SVERC_otu <- SVERC_otu[rowSums(SVERC_otu)>0,]
+# 
+# MRC1 <- MRC_otu[,"MRC1"]
+# MRC1_otu <- data.frame(otu=names(MRC1), MRC1) %>%
+#   filter(MRC1>0)
+# MRC7 <- MRC_otu[,"MRC7"]
+# MRC7_otu <- data.frame(otu = names(MRC7), MRC7) %>%
+#   filter(MRC7>0)
+# MRC4 <- MRC_otu[,"MRC4"]
+# MRC4_otu <- data.frame(otu = names(MRC4), MRC4) %>%
+#   filter(MRC4>0)
+# 
+# MRC1_all <- MRC_otu[as.character(MRC1_otu$otu),]
+# MRC7_all <- MRC_otu[as.character(MRC7_otu$otu),]
+# MRC4_all <- MRC_otu[as.character(MRC4_otu$otu),]
+# 
+# data.frame(otu=rownames(MRC_otu), MRC_otu) %>%
+#   gather(id, abun, -otu) %>%
+#   left_join(map) %>%
+#   mutate(abun=if_else(abun>0, 1, 0),
+#          group=if_else(otu %in% rownames(MRC1_all), "2mm", "other")) %>%
+#   group_by(id, Size_fraction, group) %>%
+#   summarise(count_otu=sum(abun)) %>%
+#   ggplot(aes(x=as.factor(Size_fraction), y=count_otu, alluvium=group)) +
+#   geom_alluvium(aes(fill=group, col=group))+
+#   theme_classic()+
+#   labs(y='#OTUs', x='Size (mm)')
+# 
+# data.frame(otu=rownames(MRC_otu), MRC_otu) %>%
+#   gather(id, abun, -otu) %>%
+#   left_join(map) %>%
+#   mutate(abun=if_else(abun>0, 1, 0),
+#          group=if_else(otu %in% rownames(MRC7_all), "<0.056mm", "other")) %>%
+#   group_by(id, Size_fraction, group) %>%
+#   summarise(count_otu=sum(abun)) %>%
+#   ggplot(aes(x=as.factor(Size_fraction), y=count_otu, alluvium=group)) +
+#   geom_alluvium(aes(fill=group, col=group))+
+#   theme_classic()+
+#   labs(y='#OTUs', x='Size (mm)')
+# 
+# library(pheatmap)
+# 
+# MRC_abun <- OTU.rare[,map$Site=='MRC']
+# MRC_otu_v1 <- MRC_otu[rowSums(MRC_otu)>0.001,]
+# pheatmap(as.matrix(MRC_otu_v1), cluster_rows = T, cluster_cols = F, cutree_rows = 7, scale='row',show_rownames = F)
+# 
+# S.rel.abun.all <- decostand(SVERC_otu, method = 'total', MARGIN = 2)
+# 
+# SVERC_otu_v1 <- S.rel.abun.all[rowSums(S.rel.abun.all)>0.0001,]
+# pheatmap(as.matrix(SVERC_otu_v1), cluster_rows = T, cluster_cols = F, cutree_rows = 7, scale='row',show_rownames = F)
+#######################
 
 #' Using data generated in Oct 2020
 #' OTU tables created using QIIME2, R1 only.
@@ -238,7 +238,6 @@ set.seed(077)
 OTU.rare <- t(rrarefy(t(otu_filtered_complete), 40000)) 
 rel.abun.all <- decostand(OTU.rare, method = 'total', MARGIN = 2)
 
-
 #' Alpha diversity measurements
 #' 
 s <- specnumber(OTU.rare,MARGIN=2)
@@ -288,9 +287,9 @@ ax2.j.otu <- otu.j.pcoa$eig[2]/sum(otu.j.pcoa$eig)
 
 pcoa.BC <- ggplot(map_filtered, aes(x=Axis1.BC, y=Axis2.BC)) +
   theme_classic() +
-  geom_point(aes(col=Site, alpha=Size_fraction), size=4)+
+  geom_point(aes(col=Site, size=Size_fraction))+
   scale_color_manual(values = c("#009e73", "#0072b2")) + 
-  scale_alpha_continuous(range = c(0.1, 1)) + 
+  #scale_alpha_continuous(range = c(0.1, 1)) + 
   theme(legend.position = c(.5,.5),
         legend.background = element_rect(fill="transparent"),
         legend.text = element_text(size=8),
@@ -300,9 +299,9 @@ pcoa.BC <- ggplot(map_filtered, aes(x=Axis1.BC, y=Axis2.BC)) +
 
 pcoa.J <- ggplot(map_filtered, aes(x=Axis1.J, y=Axis2.J)) +
   theme_classic() +
-  geom_point(aes(col=Site, alpha=Size_fraction), size=4)+
+  geom_point(aes(col=Site, size=Size_fraction))+
   scale_color_manual(values = c("#009e73", "#0072b2")) + 
-  scale_alpha_continuous(range = c(0.1, 1)) + 
+  #scale_alpha_continuous(range = c(0.1, 1)) + 
   theme(legend.position = 'none',
         legend.background = element_rect(fill="transparent"),
         legend.text = element_text(size=8),
@@ -336,18 +335,18 @@ ax2.j.otu.S <- otu.S.j.pcoa$eig[2]/sum(otu.S.j.pcoa$eig)
 
 pcoa.BC.S <- ggplot(mapS, aes(x=Axis1.BC.S, y=Axis2.BC.S)) +
   theme_classic() +
-  geom_point(aes(col=Site, alpha=Size_fraction), size=4)+
+  geom_point(aes(col=Site, size=Size_fraction))+
   scale_color_manual(values = c("#0072b2")) + 
-  scale_alpha_continuous(range = c(0.1, 1)) + 
+  #scale_alpha_continuous(range = c(0.1, 1)) + 
   theme(legend.position = 'none')+
   labs(x=paste('PCoA1 (',100*round(ax1.bc.otu.S,3),'%)',sep=''),y=paste('PCoA2 (',100*round(ax2.bc.otu.S,3),'%)', sep=''), 
        alpha='Size (mm)', title='Bray-Curtis')
 
 pcoa.J.S <- ggplot(mapS, aes(x=Axis1.J.S, y=Axis2.J.S)) +
   theme_classic() +
-  geom_point(aes(col=Site, alpha=Size_fraction), size=4)+
+  geom_point(aes(col=Site, size=Size_fraction))+
   scale_color_manual(values = c("#0072b2")) + 
-  scale_alpha_continuous(range = c(0.1, 1)) + 
+  #scale_alpha_continuous(range = c(0.1, 1)) + 
   theme(legend.position = 'none')+
   labs(x=paste('PCoA1 (',100*round(ax1.j.otu.S,3),'%)',sep=''),y=paste('PCoA2 (',100*round(ax2.j.otu.S,3),'%)', sep=''), 
        alpha='Size (mm)', title="Jaccard")
@@ -373,7 +372,7 @@ ax2.j.otu.M <- otu.M.j.pcoa$eig[2]/sum(otu.M.j.pcoa$eig)
 
 pcoa.BC.M <- ggplot(mapM, aes(x=Axis1.BC.M, y=Axis2.BC.M)) +
   theme_classic() +
-  geom_point(aes(col=Site, alpha=Size_fraction), size=4)+
+  geom_point(aes(col=Site, size=Size_fraction))+
   scale_color_manual(values = c("#009e73")) + 
   scale_alpha_continuous(range = c(0.1, 1)) + 
   theme(legend.position = 'none')+
@@ -382,9 +381,9 @@ pcoa.BC.M <- ggplot(mapM, aes(x=Axis1.BC.M, y=Axis2.BC.M)) +
 
 pcoa.J.M <- ggplot(mapM, aes(x=Axis1.J.M, y=Axis2.J.M)) +
   theme_classic() +
-  geom_point(aes(col=Site, alpha=Size_fraction), size=4)+
+  geom_point(aes(col=Site, size=Size_fraction))+
   scale_color_manual(values = c("#009e73")) + 
-  scale_alpha_continuous(range = c(0.1, 1)) + 
+  #scale_alpha_continuous(range = c(0.1, 1)) + 
   theme(legend.position = 'none')+
   labs(x=paste('PCoA1 (',100*round(ax1.j.otu.M,3),'%)',sep=''),y=paste('PCoA2 (',100*round(ax2.j.otu.M,3),'%)', sep=''), 
        alpha='Size (mm)', title="Jaccard")
@@ -393,37 +392,60 @@ ggarrange(pcoa.BC.M,pcoa.BC.S ,pcoa.J.M, pcoa.J.S,
           labels = c("A", "B", "C", "D"), ncol = 2, nrow = 2) %>%
   ggexport(filename = "PCoA_site.pdf", width = 4.5, height = 4)
 
-#' Taxonomic analysis
-#' 
-
-tax_filtered %>%
-  group_by(Kingdom,Phylum, Class, Family, Genus) %>%
-  filter(Kingdom == "Archaea") %>%
-  summarize(n_taxa=length(unique(OTU)))
+#' Investigating the dynamics in AOA and OAB communities
 
 map_filtered$sampleID <- rownames(map_filtered)
 names(map_filtered)
 
-(fig_Arch <- data.frame(OTU=rownames(rel.abun.all), rel.abun.all) %>%
+AOA_AOB_plot<- data.frame(OTU=rownames(rel.abun.all), rel.abun.all) %>%
   gather(sampleID, abun, -OTU) %>%
   left_join(tax_filtered) %>%
   left_join(map_filtered) %>%
-  filter(Phylum == 'Crenarchaeota') %>%
-  group_by(Phylum, Site, Size_fraction,Replicate, OM, N) %>%
+  mutate(taxo= paste(Phylum, Class,Order, Family, Genus, Species, sep='.')) %>%
+  filter(str_detect(string = taxo, pattern = c('Crenarcha','Nitroso','Nitrososphae','Nitrosotal', 'Nitrosomonas', 'Nitrosococcus', 'Nitrosospira', 'Nitrosovibrio', 
+         'Nitrosolobus'))) %>%
+  group_by(Phylum, Site, Size_fraction,Replicate, NH4, OM, N) %>%
   summarise(n_abun=sum(abun)/length(unique(sampleID))) %>%
-  ggplot(aes(y=n_abun, x=OM/N, group=Site, col=Site)) +
-  geom_point(aes(alpha=Size_fraction), size=2.5) +
-  scale_alpha_continuous(range = c(0.1, 1)) + 
-  scale_color_manual(values = c("#009e73", "#0072b2")) + 
-  labs(x='C:N', y="Relative abundance", alpha = 'Size (mm)')+
-  geom_smooth(method = "lm", se = F, aes(col=Site))+
+  ggplot(aes(y=n_abun, x=NH4, group=Phylum, col=Phylum)) +
+  geom_point(aes(size=as.factor(Size_fraction))) +
+  scale_color_manual(values = c("black", "#0072b2"), labels = c("AOA (n=9)", "AOB (n=12)")) + 
+  labs(x='NH4 (ppm)', y="Relative abundance", size = 'Size (mm)')+
+  geom_smooth(method = "lm", se = F, aes(col=Phylum))+
+  facet_wrap(~Site, scales = 'free') +
   theme_classic()
-)
+  
+data.frame(OTU=rownames(rel.abun.all), rel.abun.all) %>%
+  gather(sampleID, abun, -OTU) %>%
+  left_join(tax_filtered) %>%
+  left_join(map_filtered) %>%
+  mutate(taxo= paste(Phylum, Class,Order, Family, Genus, Species, sep='.')) %>%
+  filter(str_detect(string = taxo, pattern = c('Crenarcha','Nitroso','Nitrososphae','Nitrosotal', 'Nitrosomonas', 'Nitrosococcus', 'Nitrosospira', 'Nitrosovibrio', 
+                                               'Nitrosolobus')),
+         abun>0) %>%
+  group_by(Site, Phylum, Family) %>%
+  summarise(n_taxa=length(unique(OTU)))
 
-names(map_filtered)
+AOA_AOB_genus_plot <- data.frame(OTU=rownames(rel.abun.all), rel.abun.all) %>%
+  gather(sampleID, abun, -OTU) %>%
+  left_join(tax_filtered) %>%
+  left_join(map_filtered) %>%
+  mutate(taxo= paste(Phylum, Class,Order, Family, Genus, Species, sep='.')) %>%
+  filter(str_detect(string = taxo, pattern = c('Crenarcha','Nitroso','Nitrososphae','Nitrosotal', 'Nitrosomonas', 'Nitrosococcus', 'Nitrosospira', 'Nitrosovibrio', 
+                                               'Nitrosolobus'))) %>%
+  group_by(Phylum, Family, Genus, Site, Size_fraction,Replicate, NH4, OM, N) %>%
+  summarise(n_abun=sum(abun)/length(unique(sampleID))) %>%
+  ggplot(aes(y=n_abun, x=NH4, group=Genus, col=Family)) +
+  geom_point(aes(size=as.factor(Size_fraction))) +
+  #scale_color_manual(values = c("black", "#0072b2"), labels = c("AOA (n=9)", "AOB (n=12)")) + 
+  labs(x='NH4 (ppm)', y="Relative abundance", size = 'Size (mm)')+
+  geom_smooth(method = "lm", se = F, aes(col=Family))+
+  facet_wrap(Site~Phylum, scales = 'free') +
+  theme_classic()
+
+#' Investigating the soil chemical characteristics
 CN_correlation <- ggplot(map_filtered, aes(x=N, y=OM, col=Site))+
-  geom_point(aes(alpha=Size_fraction), size=2.5) +
-  scale_alpha_continuous(range = c(0.1, 1)) + 
+  geom_point(aes(size=Size_fraction)) +
+  #scale_alpha_continuous(range = c(0.1, 1)) + 
   scale_color_manual(values = c("#009e73", "#0072b2")) + 
   labs(x='N (%)', y= 'Organic Matter (%)', alpha= 'Size (mm)') +
   geom_smooth(method = "lm", se = F, aes(col=Site))+
@@ -454,3 +476,249 @@ CN <- ggplot(map_filtered, aes(x=as.factor(Size_fraction), y=OM/N, col=Site))+
 ggarrange(NH4,NO3,CN, CN_correlation,
           labels = c("A", "B", "C", "D"), ncol = 2, nrow = 2) %>%
   ggexport(filename = "soil_parameters.pdf", width = 4.5, height = 4)
+
+#' Species turnover analysis
+#' Using betapart package
+#' Andres Baselga et al
+
+library(betapart)
+
+# pairwise comparison  
+BinaryOTU <- 1*((OTU.rare>0)==1)
+#OTU.rare rarefied dataset
+#otu_filtered_complete raw dataset
+
+m.OTU <- BinaryOTU[,1:21]
+m.OTU <- m.OTU[rowSums(m.OTU)>0,]
+
+s.OTU <- BinaryOTU[,22:42]
+s.OTU <- s.OTU[rowSums(s.OTU)>0,]
+
+pair.jac=beta.pair(t(BinaryOTU),index.family = 'jaccard')
+
+m.core=betapart.core(t(m.OTU))
+m.multi=beta.multi(m.core)
+
+pair.jac.m=beta.pair(t(m.OTU),index.family = 'jaccard')
+
+pair.jac.s=beta.pair(t(s.OTU),index.family = 'jaccard')
+
+
+# $ beta.jtu is turnover, beta.jne is nestedness, beta.jac is combined Jaccard
+#rar.16s.cohort.ex.j$beta.jtu
+
+distmelt <- function(d){
+  d.melt <- d %>% as.matrix %>% as.data.frame %>% tibble::rownames_to_column() %>% melt()
+  d.melt$variable <- as.character(d.melt$variable)
+  return(d.melt[d.melt$variable > d.melt$rowname, ])
+}
+
+jaccard.m.melt <- pair.jac.m$beta.jac %>% distmelt()
+turnover.m.melt <- pair.jac.m$beta.jtu %>% distmelt()
+nestedness.m.melt <- pair.jac.m$beta.jne %>% distmelt()
+
+jaccard.s.melt <- pair.jac.s$beta.jac %>% distmelt()
+turnover.s.melt <- pair.jac.s$beta.jtu %>% distmelt()
+nestedness.s.melt <- pair.jac.s$beta.jne %>% distmelt()
+
+jaccard.m.melt$Type <- "Total"
+turnover.m.melt$Type <- "Turnover"
+nestedness.m.melt$Type <- "Nestedness"
+
+jaccard.s.melt$Type <- "Total"
+turnover.s.melt$Type <- "Turnover"
+nestedness.s.melt$Type <- "Nestedness"
+
+
+m.melt <- rbind(jaccard.m.melt, turnover.m.melt, nestedness.m.melt)
+
+s.melt <- rbind(jaccard.s.melt, turnover.s.melt, nestedness.s.melt)
+
+m.melt %>% ggplot(aes(y = variable, x = rowname, fill = value)) +
+  geom_raster() + facet_grid(~Type) + theme_classic() +
+  theme(axis.text.x = element_blank(),
+        axis.title = element_blank()) +
+  #scale_fill_viridis(limits=c(0,1)) +
+  scale_fill_gradient(low = "black", high = "#009e73", limits=c(0,1))
+ 
+s.melt %>% ggplot(aes(y = variable, x = rowname, fill = value)) +
+  geom_raster() + facet_grid(~Type) + theme_classic() +
+  theme(axis.text.x = element_blank(),
+        axis.title = element_blank()) +
+  #scale_fill_viridis(limits=c(0,1), option = "A") +
+  scale_fill_gradient(low = "black", high = "#0072b2",limits=c(0,1))
+
+# Add columns listing the categories that the samples are in. Match them using grep.
+fix_rows <- function(df){
+  
+  try(
+    # try() to add nice labels, but don't mentioned it if there is no $Type
+    df$Type <- factor(df$Type, levels = c("Total", "Nestedness", "Turnover")), silent = T
+  )
+  
+  df$row_cat <- 2.000
+  df$row_cat[grepl(".min", df$rowname, fixed = T)] <- 0.050
+  df$row_cat[grepl(".005", df$rowname, fixed = T)] <- 0.056
+  df$row_cat[grepl(".01", df$rowname, fixed = T)] <- 0.180
+  df$row_cat[grepl(".02", df$rowname, fixed = T)] <- 0.250
+  df$row_cat[grepl(".05", df$rowname, fixed = T)] <- 0.500
+  df$row_cat[grepl(".1", df$rowname, fixed = T)] <- 1.000
+
+  df$var_cat <- 2.000
+  df$var_cat[grepl(".min", df$variable, fixed = T)] <- 0.050
+  df$var_cat[grepl(".005", df$variable, fixed = T)] <- 0.056
+  df$var_cat[grepl(".01", df$variable, fixed = T)] <- 0.180
+  df$var_cat[grepl(".02", df$variable, fixed = T)] <- 0.250
+  df$var_cat[grepl(".05", df$variable, fixed = T)] <- 0.500
+  df$var_cat[grepl(".1", df$variable, fixed = T)] <- 1.000
+
+  df$var_cat <- factor(df$var_cat, levels = c(0.050,0.056,0.180,0.250,0.500,1.000,2.000))
+  
+  return(df)
+}
+
+m.melt.adj <- m.melt %>% fix_rows
+
+s.melt.adj <- s.melt %>% fix_rows()
+
+
+plot_dm <- function(df, ylab = "Sampling Day"){
+  return(
+    ggplot(df, aes(y = variable, x = rowname, fill = value)) + geom_raster() +
+      theme(strip.background = element_blank(),
+            axis.text = element_blank(),
+            axis.ticks = element_blank(),
+            axis.title.x = element_blank(),
+            panel.grid = element_blank(),
+            panel.border = element_blank(),
+            legend.position = c(.95,.4)) +
+      labs(y = ylab, fill = "Binary \n Jaccard \nDistance") +
+      facet_grid(var_cat ~ Type + row_cat, scales = "free", switch = "y")
+  )
+}
+
+m.melt.adj %>%
+  plot_dm(ylab = "Size (mm)") +
+  scale_fill_viridis(limits=c(0,1))
+
+s.melt.adj %>%
+  plot_dm(ylab = "Size (mm)") +
+  scale_fill_viridis(limits=c(0,1), option = "A")
+
+#' Correlates soil particle size better with nestedness or turnover?
+#' Using adonis() function to test how much variation of nestedness and turnover can be attributed to soil particle size
+
+m.map=map_filtered[map_filtered$Site == 'MRC',]
+s.map=map_filtered[map_filtered$Site != 'MRC',]
+
+day.16s <- rbind(
+  adonis(pair.jac.m$beta.jac ~ as.factor(Size_fraction), m.map)$aov.tab %>% data.frame %>% filter(Df == '6') %>% data.frame(Site= 'MRC',Type = "Total"), 
+  adonis(pair.jac.m$beta.jtu ~ as.factor(Size_fraction), m.map)$aov.tab %>% data.frame %>% filter(Df == "6") %>% data.frame(Site= 'MRC',Type = "Turnover"), 
+  adonis(pair.jac.m$beta.jne ~ as.factor(Size_fraction), m.map)$aov.tab %>% data.frame %>% filter(Df == "6") %>% data.frame(Site= 'MRC',Type = "Nestedness"),
+  adonis(pair.jac.s$beta.jac ~ as.factor(Size_fraction), s.map)$aov.tab %>% data.frame %>% filter(Df == '6') %>% data.frame(Site= 'SVERC',Type = "Total"), 
+  adonis(pair.jac.s$beta.jtu ~ as.factor(Size_fraction), s.map)$aov.tab %>% data.frame %>% filter(Df == "6") %>% data.frame(Site= 'SVERC',Type = "Turnover"), 
+  adonis(pair.jac.s$beta.jne ~ as.factor(Size_fraction), s.map)$aov.tab %>% data.frame %>% filter(Df == "6") %>% data.frame(Site= 'SVERC',Type = "Nestedness")
+)
+
+
+
+#' How many taxa appear at a timepoint that were not in any previous size fraction 
+#' 
+OTUdf=otu_table(as.matrix(rel.abun.all), taxa_are_rows = T)
+taxPhylo=tax_filtered
+rownames(taxPhylo)=taxPhylo$OTU
+taxPhylo$OTU=NULL
+TAXdf=tax_table(as.matrix(taxPhylo))
+MAPdf=sample_data(map_filtered)
+
+PhyloData=phyloseq(OTUdf,TAXdf,MAPdf)
+
+M.rare=subset_samples(PhyloData, Site == 'MRC')
+S.rare=subset_samples(PhyloData, Site != 'MRC')
+
+M.cohort.size <- merge_samples(M.rare, group = c("Size_fraction"))
+
+total.taxa.M <- data.frame(Size = factor(c("0.05", "0.056", "0.180", "0.250", "0.500", "1.000", "2.000"),
+                                      levels = c("0.05", "0.056", "0.180", "0.250", "0.500", "1.000", "2.000")))
+total.taxa.M$Site="MRC"
+total.taxa.M$`Total OTUs` <- c(
+  subset_samples(M.cohort.size, Size_fraction == .05) %>% filter_taxa(function(x) max(x) > 0, TRUE) %>% ntaxa(),
+  subset_samples(M.cohort.size, Size_fraction %in% c(.05, .056)) %>% filter_taxa(function(x) max(x) > 0, TRUE) %>% ntaxa(),
+  subset_samples(M.cohort.size, Size_fraction %in% c(.05, .056, .180)) %>% filter_taxa(function(x) max(x) > 0, TRUE) %>% ntaxa(),
+  subset_samples(M.cohort.size, Size_fraction %in% c(.05, .056, .180, .250)) %>% filter_taxa(function(x) max(x) > 0, TRUE) %>% ntaxa(),
+  subset_samples(M.cohort.size, Size_fraction %in% c(.05, .056, .180, .250, .500)) %>% filter_taxa(function(x) max(x) > 0, TRUE) %>% ntaxa(),
+  subset_samples(M.cohort.size, Size_fraction %in% c(.05, .056, .180, .250, .500, 1.000)) %>% filter_taxa(function(x) max(x) > 0, TRUE) %>% ntaxa(),
+  subset_samples(M.cohort.size, Size_fraction %in% c(.05, .056, .180, .250, .500, 1.000, 2.000)) %>% filter_taxa(function(x) max(x) > 0, TRUE) %>% ntaxa()
+)
+
+total.taxa.M$`New OTUs` <- total.taxa.M$`Total OTUs` - lag(total.taxa.M$`Total OTUs`)
+
+# Replace NA (all OTUs are new at the first timepoint)
+total.taxa.M$`New OTUs`[is.na(total.taxa.M$`New OTUs`)] <- total.taxa.M$`Total OTUs`[is.na(total.taxa.M$`New OTUs`)]
+
+# calculate observed turnover
+total.taxa.M$`Percent New OTUs` <- total.taxa.M$`New OTUs` / total.taxa.M$`Total OTUs`
+
+
+S.cohort.size <- merge_samples(S.rare, group = c("Size_fraction"))
+
+total.taxa.S <- data.frame(Size = factor(c("0.05", "0.056", "0.180", "0.250", "0.500", "1.000", "2.000"),
+                                         levels = c("0.05", "0.056", "0.180", "0.250", "0.500", "1.000", "2.000")))
+total.taxa.S$Site="SVERC"
+
+total.taxa.S$`Total OTUs` <- c(
+  subset_samples(S.cohort.size, Size_fraction == .05) %>% filter_taxa(function(x) max(x) > 0, TRUE) %>% ntaxa(),
+  subset_samples(S.cohort.size, Size_fraction %in% c(.05, .056)) %>% filter_taxa(function(x) max(x) > 0, TRUE) %>% ntaxa(),
+  subset_samples(S.cohort.size, Size_fraction %in% c(.05, .056, .180)) %>% filter_taxa(function(x) max(x) > 0, TRUE) %>% ntaxa(),
+  subset_samples(S.cohort.size, Size_fraction %in% c(.05, .056, .180, .250)) %>% filter_taxa(function(x) max(x) > 0, TRUE) %>% ntaxa(),
+  subset_samples(S.cohort.size, Size_fraction %in% c(.05, .056, .180, .250, .500)) %>% filter_taxa(function(x) max(x) > 0, TRUE) %>% ntaxa(),
+  subset_samples(S.cohort.size, Size_fraction %in% c(.05, .056, .180, .250, .500, 1.000)) %>% filter_taxa(function(x) max(x) > 0, TRUE) %>% ntaxa(),
+  subset_samples(S.cohort.size, Size_fraction %in% c(.05, .056, .180, .250, .500, 1.000, 2.000)) %>% filter_taxa(function(x) max(x) > 0, TRUE) %>% ntaxa()
+)  
+
+total.taxa.S$`New OTUs` <- total.taxa.S$`Total OTUs` - lag(total.taxa.S$`Total OTUs`)
+
+#' Replace NA (all OTUs are new at the first timepoint)
+total.taxa.S$`New OTUs`[is.na(total.taxa.S$`New OTUs`)] <- total.taxa.S$`Total OTUs`[is.na(total.taxa.S$`New OTUs`)]
+
+#' calculate observed turnover
+total.taxa.S$`Percent New OTUs` <- total.taxa.S$`New OTUs` / total.taxa.S$`Total OTUs`
+
+#' Join both DFs
+total.all <- rbind(total.taxa.M,total.taxa.S)
+
+#' Renaming variables
+total.all$`Sum of all observed OTUs` <- total.all$`Total OTUs`
+total.all$`Sum of previously unobserved OTUs` <- total.all$`New OTUs`
+total.all$`Fraction of community composed of\npreviously unobserved OTUs ` <- total.all$`Percent New OTUs`
+
+total.all$`Total OTUs` <- NULL
+total.all$`New OTUs` <- NULL
+total.all$`Percent New OTUs` <- NULL
+
+total.all.melt <- melt(total.all)
+
+total.all.melt$variable <- factor(total.all.melt$variable, levels = levels(total.all.melt$variable)[c(3,2,1)])
+
+total.all.melt %>%
+  ggplot(aes(x = Size, y = value, color = Site)) +
+  geom_point() +
+  geom_line(aes(group = Site), size = 1, alpha = .5) +
+  facet_wrap(~variable, scales = "free_y") +
+  scale_color_manual(values = c("#009e73", "#0072b2")) +
+  theme_classic() +
+  theme(axis.title = element_blank(),
+        #        legend.position = c(.92,.6), # legend in the left panel
+        legend.position = c(.5,.62), # legend in the right panel
+        legend.title = element_blank()
+        #, panel.spacing.x = unit(30, "pt") # add spacing between plots for equations
+) 
+
+
+
+library(DivNet)
+if (!requireNamespace("BiocManager", quietly=TRUE)) 
+  install.packages("BiocManager")
+BiocManager::install("metagenomeSeq")
+library(metagenomeSeq)
+
