@@ -76,7 +76,6 @@ seqtab2 <- seqtab[,nchar(colnames(seqtab)) %in% 449:453]
 
 #' Remove chimera
 seqtab.nochim <- dada2::removeBimeraDenovo(seqtab2, method="consensus", multithread=TRUE, verbose=TRUE)
-
 ```
 
 Output of the upper part is represented in this table:
