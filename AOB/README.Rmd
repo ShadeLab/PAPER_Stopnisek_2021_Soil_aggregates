@@ -114,5 +114,5 @@ where -T 11 represent frame usage for bacteria, -f 3 start from 3rd base in the 
 
 For the downstream analysis we converted .fa to .tab using `seqkit fx2tab` comand.
 
-The ASV1021 and ASV1059 showed to be some other then amoA since their AA composition is very dissimilar to the rest. These and al reads containing stop codons were removed in later stages. 
+The ASV1021 and ASV1059 showed not to be amoA since their AA composition is very dissimilar to the rest. These and all reads containing stop codons were removed in later stages. 
 
