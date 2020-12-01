@@ -59,6 +59,7 @@ dada2::uniquesToFasta(dada2::getUniques(seqtab.nochim), fout="ASV.fa",
 #rename the ASV from read sequence to ASV#
 asvTable=seqtab.nochim
 colnames(asvTable)=paste0("ASV", seq(length(dada2::getUniques(asvTable))))
+#write.table(t(asvTable), "Documents/git/SoilAggregates/AOB/ASVna_table.txt", sep='\t')
 
 #How many chimeric reads are there?
 sum(asvTable)/sum(seqtab2)
@@ -73,6 +74,7 @@ write.delim(x = track, 'Documents/git/SoilAggregates/AOB_dada2_readStat.txt')
 
 library(gt)
 library(dplyr)
+
 track = as.data.frame(track)
 track <- data.frame(sampleID = row.names(track), track)
 track = tibble::remove_rownames(track)
@@ -107,13 +109,13 @@ site <- substr(samples.out,1,1)
 samdf <- data.frame(Sample=samples.out, Site=site)
 write.table(samdf, 'map_AOB.txt', sep='\t') #add outside R soil size and replicate
 
-mapAOB=read.table('Documents/git/SoilAggregates/map_AOB.txt', sep='\t', header=T, row.names=1)
+mapAOB=read.table('Documents/git/SoilAggregates/AOB/map_AOB.txt', sep='\t', header=T, row.names=1)
 
-library(Biostrings)
 ps <- phyloseq::phyloseq(otu_table(asvTable, taxa_are_rows=FALSE), 
-                         sample_data(mapAOA))
+                         sample_data(mapAOB))
 
 #rename ASV from sequences to ASV#
+library(Biostrings)
 dna <- Biostrings::DNAStringSet(taxa_names(ps))
 names(dna) <- taxa_names(ps)
 ps <- merge_phyloseq(ps, dna)
@@ -123,7 +125,6 @@ ps
 pdf('AOB_richness.pdf')
 plot_richness(ps, x="Size", measures=c("Observed","Shannon", "Simpson"), color="Site")
 dev.off()
-
 
 #' Joining nucleic acid ASV based on their amino acid sequences (translated using seqkit tool)
 #' command for seqkit
@@ -140,24 +141,20 @@ head(AOB_table)
 AAaob=read.table("Documents/git/SoilAggregates/ASV_AA_AOB.tab", header=F)
 names(AAaob)[1]='OTU'
 
-
 AA_aob_taxa=AAaob %>% 
   left_join(AOB_table) %>%
-  pivot_longer(!c(V2, OTU, ), names_to = "sampleID", values_to = "count") %>%
+  pivot_longer(!c(V2, OTU), names_to = "sampleID", values_to = "count") %>%
+  filter(!(OTU %in% c("ASV924","ASV959",'ASV1021','ASV1059'))) %>%
   group_by(V2, sampleID) %>%
   summarize(count=sum(count)) %>%
   dplyr::filter(!grepl("X", V2)) %>%
   pivot_wider(names_from = sampleID,
               values_from = count) 
 
-No_ASV_asAA = AAaob %>%
-  group_by(V2) %>%
-  summarize(ASV_No = length(OTU)) %>%
-  arrange(desc(ASV_No)) %>%
-  left_join(AA_aob_taxa)
-
 AA_aob_taxa$AAasv=paste0("AA.ASV", seq(length(AA_aob_taxa$V2)))
 colnames(AA_aob_taxa)=str_remove_all(colnames(AA_aob_taxa),"_trim_filt_F.fastq.gz") 
+
+write.table(data.frame(x=AA_aob_taxa$AAasv, y=AA_aob_taxa$V2),"Documents/git/SoilAggregates/AOB/AOBamino.txt", sep='\t')
 
 #' **************************************************
 #' Statistical analysis
@@ -184,6 +181,8 @@ AOBabun <- decostand(ASVaob.rare, method = 'total', MARGIN = 2)
 rownames(mapAOB) <- sapply(strsplit(rownames(mapAOB), "_AOB"), `[`, 1)
 
 rownames(mapAOB) == colnames(AOBtable)
+
+AOBphyloseq=phyloseq(otu_table(as.matrix(AOBtable), taxa_are_rows = T),sample_data(mapAOB))
 
 #' Alpha diversity measurements
 #' 
@@ -224,7 +223,15 @@ pcoa.BC.asv.b <- ggplot(mapAOB, aes(x=Axis1.BC, y=Axis2.BC)) +
   labs(x=paste('PCoA1 (',100*round(ax1.bc.asv.b,3),'%)',sep=''),y=paste('PCoA2 (',100*round(ax2.bc.asv.b,3),'%)', sep=''), 
        alpha='Size (mm)', title='Bray-Curtis')
 
-library(devtools) # Load the devtools package
-install_github("umerijaz/microbiomeSeq") # Install the package
-library(microbiomeSeq)  #load the package
+
+TREE = read_tree("Documents/git/SoilAggregates/AOB/AOB_amino.tre")
+AOBphyloseq=phyloseq(otu_table(as.matrix(AOBtable), taxa_are_rows = T),sample_data(mapAOB), TREE)
+AOBphyloseq_norm=phyloseq_transform_css(AOBphyloseq)
+
+plot_tree(AOBphyloseq_norm, ladderize="left", nodelabf=nodeplotboot(), color="Site", size="Size") 
+
+AOB.taxa.cor <- taxa.env.correlation(AOBphyloseq_norm, grouping_column="Site", method="pearson", pvalue.threshold=0.05,
+                                     padjust.method="BH", adjustment=5, num.taxa=195, select.variables=NULL)
+p <- plot_taxa_env(AOB.taxa.cor)
+print(p)
 

@@ -1,0 +1,101 @@
+---
+title: "AOA amoA amplicon read processing overview"
+output: html_notebook
+---
+
+This is the reported staistics from processing the AOA amoA amplicons using DADA2. For generating amplicon we followed a protocol described by Aigle et al., [2019](https://environmentalmicrobiome.biomedcentral.com/articles/10.1186/s40793-019-0342-6). 
+
+We modified the published pipline and it consists of following steps:
+
++ removing primers using cutadapt
++ using DADA2 in R for read processing and read denoising (generating ASV)
++ translating ASV read (comparing and matching to the reading frame of references) to remove contamination and proteins with stop codons
++ generating AA(amino acid) ASVs
+
+*What modification were made?*
+
+1. The proposed workflow by Aigle et al. used trimming off primers by cutting the exact number of bp from each read. In our case it turned out that not all reads had the full lenght primers. To avoid issues when translating reads we decided to use cutadapt instead which removed precisely all the regeon associated with the primer.
+2. We used DADA2 throughout the workflow. Denoising in the published work was done using usearch (generating ZOTUs). 
+3. Reads were concatenated in DADA2 using the argument `justConcatenate=TRUE` at the merging step. Reads were truncated to 230bp.
+4. We used amino acid ASVs for downstream analysis instead of nucleotide sequences. 
+
+### Primer trimming
+To remove primers from reads we used cutadapt (v2.1) on MSU HPCC cluster with following commands:
+```{}
+for i in *R1.fastq
+
+do
+	sample=${i%_R1.fastq}
+	
+	cutadapt -g ^ATGGTCTGGCTWAGACG -G ^GCCATCCATCTGTATGTCCA --discard-untrimmed -o ${dir}/cutadapt_before_DADA2/${sample}_trim_R1.fq -p ${dir}/cutadapt_before_DADA2/${sample}_trim_R2.fq ${dir}/fastq/${sample}_R1.fastq ${dir}/fastq/${sample}_R2.fastq >> ${dir}/cutadapt_primer_trimming_stats.txt 2>&1
+
+done
+```
+The script is provided also in the repositoy under the name stepI_trim_primer.txt.
+
+### Read filtering and read denoising
+DADA2 was used for processing reads - quality control, trimming and denoising. 
+
+The following arguments and conditions were used:
+
+```{r}
+path="~/amoA_MiSeq_sequencing/AOApart/cutadapt_before_DADA2"
+
+#' Forward and reverse fastq filenames have format: SAMPLENAME_trim_R1.fq and SAMPLENAME_trim_R2.fq
+fnFs <- sort(list.files(path, pattern="_trim_R1.fq", full.names = TRUE)) #pattern can be modify
+fnRs <- sort(list.files(path, pattern="_trim_R2.fq", full.names = TRUE)) #pattern can be modify
+if(length(fnFs) != length(fnRs)) stop("Forward and reverse files do not mach")
+	
+#' Extract sample names, assuming filenames have format: SAMPLENAME_XXX.fastq
+sample.names <- sapply(strsplit(basename(fnFs), "_R"), `[`, 1)
+
+#' Place filtered files in filtered/ subdirectory
+filtFs <- file.path(path, "filtered_230", paste0(sample.names, "_filt_F.fastq.gz"))
+filtRs <- file.path(path, "filtered_230", paste0(sample.names, "_filt_R.fastq.gz"))
+
+#' Set truncLen and minLen according to your dataset
+out <- dada2::filterAndTrim(fnFs, filtFs, fnRs, filtRs, truncLen=c(230,230), minLen = 230, truncQ=2, maxN=0, maxEE=c(2,2), compress=TRUE, multithread=TRUE, rm.phix=TRUE)
+
+errF <- dada2::learnErrors(filtFs, multithread=TRUE)
+errR <- dada2::learnErrors(filtRs, multithread=TRUE)
+
+dadaFs <- dada2::dada(filtFs, err=errF, multithread=TRUE)
+dadaRs <- dada2::dada(filtRs, err=errR, multithread=TRUE)
+
+mergers <- dada2::mergePairs(dadaFs, filtFs, dadaRs, filtRs, verbose=TRUE, justConcatenate=TRUE)
+
+seqtab <- dada2::makeSequenceTable(mergers, orderBy = "abundance")
+
+#' Remove chimera
+seqtab.nochim <- dada2::removeBimeraDenovo(seqtab, method="consensus", multithread=TRUE, verbose=TRUE)
+
+#' Save ASV as fasta
+uniquesToFasta(getUniques(seqtab.nochim), fout="ASV.fa", ids=paste0("ASV", seq(length(getUniques(seqtab.nochim)))))
+
+#rename the ASV from read sequence to ASV#
+asvTable=seqtab.nochim
+colnames(asvTable)=paste0("ASV", seq(length(getUniques(asvTable))))
+
+#How many chimeric reads are there?
+sum(asvTable)/sum(seqtab)
+
+# creating summary table
+getN <- function(x) sum(dada2::getUniques(x))
+track <- cbind(out, sapply(dadaFs, getN), sapply(dadaRs, getN), sapply(mergers, getN), rowSums(asvTable))
+# If processing a single sample, remove the sapply calls: e.g. replace sapply(dadaFs, getN) with getN(dadaFs)
+colnames(track) <- c("input", "filtered", "denoisedF", "denoisedR", "merged", "nonchim")
+rownames(track) <- sample.names
+head(track)
+
+#create ASV table for phyloseq
+
+samples.out <- rownames(asvTable)
+subject <- sapply(strsplit(samples.out, "_AOA"), `[`, 1)
+site <- substr(samples.out,1,1)
+
+samdf <- data.frame(Sample=samples.out, Site=site)
+write.table(samdf, 'map_AOA.txt', sep='\t')
+mapAOA=read.table('map_AOA.txt', sep='\t', header=T, row.names=1)
+
+
+```

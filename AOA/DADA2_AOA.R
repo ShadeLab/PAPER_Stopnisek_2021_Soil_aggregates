@@ -25,10 +25,7 @@ filtFs <- file.path(path, "filtered_230", paste0(sample.names, "_filt_F.fastq.gz
 filtRs <- file.path(path, "filtered_230", paste0(sample.names, "_filt_R.fastq.gz"))
 
 #Set truncLen and minLen according to your dataset
-#AOB amoA assembly: truncLen=c(229,229), minLen = 229 
-#AOA amoA gap: truncLen=c(200,200), minLen = 200 
 out <- dada2::filterAndTrim(fnFs, filtFs, fnRs, filtRs, truncLen=c(230,230), minLen = 230, truncQ=2, maxN=0, maxEE=c(2,2), compress=TRUE, multithread=TRUE, rm.phix=TRUE)
-
 
 errF <- dada2::learnErrors(filtFs, multithread=TRUE)
 errR <- dada2::learnErrors(filtRs, multithread=TRUE)

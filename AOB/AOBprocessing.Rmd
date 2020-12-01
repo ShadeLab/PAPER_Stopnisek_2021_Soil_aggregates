@@ -3,7 +3,7 @@ title: "AOB amoA amplicon read processing overview"
 output: html_notebook
 ---
 
-This is the reported staistics from processing the AOB amoA amplicons using DADA2. For generating amplicon we followed protocol described by Aigle et al., [2019](https://environmentalmicrobiome.biomedcentral.com/articles/10.1186/s40793-019-0342-6). 
+This is the reported staistics from processing the AOB amoA amplicons using DADA2. For generating amplicon we followed a protocol described by Aigle et al., [2019](https://environmentalmicrobiome.biomedcentral.com/articles/10.1186/s40793-019-0342-6). 
 
 We modified the published pipline and it consists of following steps:
 
@@ -14,7 +14,10 @@ We modified the published pipline and it consists of following steps:
 
 *What modification were made?*
 
-1. The proposed workflow by Aigle et al. used trimming off primers by cutting the exact number of bp from each read. In our case it turned out that not all reads had the full lenght primers. Toavoid issues when translating reads we decided to use cutadapt instead which removed precisely th
+1. The proposed workflow by Aigle et al. used trimming off primers by cutting the exact number of bp from each read. In our case it turned out that not all reads had the full lenght primers. To avoid issues when translating reads we decided to use cutadapt instead which removed precisely all the regeon associated with the primer.
+2. We used DADA2 throughout the workflow. Denoising in the published work was done using usearch (generating ZOTUs). 
+3. Instead of 229bp we used 240bp long fragments for merging
+4. We used amino acid ASVs for downstream analysis instead of nucleotide sequences. 
 
 ### Primer trimming
 To remove primers from reads we used cutadapt (v2.1) on MSU HPCC cluster with following commands:
@@ -113,5 +116,24 @@ where -T 11 represent frame usage for bacteria, -f 3 start from 3rd base in the 
 
 For the downstream analysis we converted .fa to .tab using `seqkit fx2tab` comand.
 
-The ASV1021 and ASV1059 showed not to be amoA since their AA composition is very dissimilar to the rest. These and all reads containing stop codons were removed in later stages. 
+The ASV924",ASV959 ASV1021 and ASV1059 showed not to be amoA since their AA composition is very dissimilar to the rest. These and all reads containing stop codons were removed in later stages. 
 
+### Building phylogenetic tree
+Remaining amino acid sequences were used to build phylogenetic tree.
+
+We used MAFFT for the alignemnt:
+
+```{bash}
+ml GCC/9.3.0
+module load MAFFT/7.471-with-extensions
+mafft --auto AOB_amino.fa > AOB_amino_aln.fasta
+```
+
+And FastTree for building the tree:
+
+```{bash}
+ml ifort/2018.3.222-GCC-7.3.0-2.30  impi/2018.3.222
+ml FastTree/2.1.10
+
+FastTree AOB_amino_aln.fasta > AOB_amino.tre
+```
