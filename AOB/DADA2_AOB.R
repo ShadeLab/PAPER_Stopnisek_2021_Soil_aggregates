@@ -59,7 +59,7 @@ dada2::uniquesToFasta(dada2::getUniques(seqtab.nochim), fout="ASV.fa",
 #rename the ASV from read sequence to ASV#
 asvTable=seqtab.nochim
 colnames(asvTable)=paste0("ASV", seq(length(dada2::getUniques(asvTable))))
-#write.table(t(asvTable), "Documents/git/SoilAggregates/AOB/ASVna_table.txt", sep='\t')
+write.table(t(asvTable), "Documents/git/SoilAggregates/AOB/ASVna_table_AOB.txt", sep='\t') #ASV table output for AOB
 
 #How many chimeric reads are there?
 sum(asvTable)/sum(seqtab2)
@@ -70,6 +70,7 @@ track <- cbind(out, sapply(dadaFs, getN), sapply(dadaRs, getN), sapply(mergers, 
 # If processing a single sample, remove the sapply calls: e.g. replace sapply(dadaFs, getN) with getN(dadaFs)
 colnames(track) <- c("input", "filtered", "denoisedF", "denoisedR", "merged", "nonchim")
 head(track)
+
 write.delim(x = track, 'Documents/git/SoilAggregates/AOB_dada2_readStat.txt')
 
 library(gt)
@@ -122,10 +123,6 @@ ps <- merge_phyloseq(ps, dna)
 taxa_names(ps) <- paste0("ASV", seq(ntaxa(ps)))
 ps
 
-pdf('AOB_richness.pdf')
-plot_richness(ps, x="Size", measures=c("Observed","Shannon", "Simpson"), color="Site")
-dev.off()
-
 #' Joining nucleic acid ASV based on their amino acid sequences (translated using seqkit tool)
 #' command for seqkit
 #' seqkit translate -T 11 -f 2 ASV.fa --clean > ASV_AA.fa
@@ -154,35 +151,39 @@ AA_aob_taxa=AAaob %>%
 AA_aob_taxa$AAasv=paste0("AA.ASV", seq(length(AA_aob_taxa$V2)))
 colnames(AA_aob_taxa)=str_remove_all(colnames(AA_aob_taxa),"_trim_filt_F.fastq.gz") 
 
+#Writing out amino acid sequences:
 write.table(data.frame(x=AA_aob_taxa$AAasv, y=AA_aob_taxa$V2),"Documents/git/SoilAggregates/AOB/AOBamino.txt", sep='\t')
+#' Writing out the amino acid ASV table
+write_delim(AA_aob_taxa, 'Documents/git/SoilAggregates/AOB/AOB_AA_table.txt') 
 
 #' **************************************************
 #' Statistical analysis
 #' **************************************************
 
 #' Creating an ASV table (ASV based on the AA sequeces)
+AA_aob_taxa=read.delim('Documents/git/SoilAggregates/AOB/AOB_AA_table.txt',sep = ' ')
+mapAOB_raw=read.table('Documents/git/SoilAggregates/AOB/map_AOB.txt', sep='\t', header=T, row.names=1)
 
-AOBtable=AA_aob_taxa[-1] 
+AOBtable=AA_aob_taxa[-1] #remove the sequences
+
+#' need to rename the colnames and remove anything following "_AOB"
 samples.out <- colnames(AOBtable)
 subject <- sapply(strsplit(samples.out, "_AOB"), `[`, 1)
 colnames(AOBtable)=subject
-
-AOBtable=as.data.frame(AOBtable) 
 rownames(AOBtable)=AOBtable$AAasv
 AOBtable$AAasv=NULL
-
 AOBtable=as.matrix(AOBtable)
+
+#' same for the map file
+rownames(mapAOB) <- sapply(strsplit(rownames(mapAOB), "_AOB"), `[`, 1)
 
 library(vegan)
 set.seed(533)
+
 ASVaob.rare <- t(rrarefy(t(AOBtable), 40000)) 
 AOBabun <- decostand(ASVaob.rare, method = 'total', MARGIN = 2)
 
-rownames(mapAOB) <- sapply(strsplit(rownames(mapAOB), "_AOB"), `[`, 1)
-
 rownames(mapAOB) == colnames(AOBtable)
-
-AOBphyloseq=phyloseq(otu_table(as.matrix(AOBtable), taxa_are_rows = T),sample_data(mapAOB))
 
 #' Alpha diversity measurements
 #' 
@@ -193,7 +194,6 @@ AOBpielou=AOBh/log(AOBs)
 mapAOB$Richness <- AOBs
 mapAOB$Shannon <- AOBh
 mapAOB$Pielou <- AOBpielou 
-
 
 #' Beta diversity
 #' Combined dataset
@@ -223,12 +223,15 @@ pcoa.BC.asv.b <- ggplot(mapAOB, aes(x=Axis1.BC, y=Axis2.BC)) +
   labs(x=paste('PCoA1 (',100*round(ax1.bc.asv.b,3),'%)',sep=''),y=paste('PCoA2 (',100*round(ax2.bc.asv.b,3),'%)', sep=''), 
        alpha='Size (mm)', title='Bray-Curtis')
 
+#' Using phyloseq for the analysis
 
 TREE = read_tree("Documents/git/SoilAggregates/AOB/AOB_amino.tre")
-AOBphyloseq=phyloseq(otu_table(as.matrix(AOBtable), taxa_are_rows = T),sample_data(mapAOB), TREE)
-AOBphyloseq_norm=phyloseq_transform_css(AOBphyloseq)
+AOBp=phyloseq(otu_table(as.matrix(AOBtable), taxa_are_rows = T), sample_data(mapAOB), TREE)
+AOBphyloseq_norm=phyloseq_transform_css(AOBp)
 
 plot_tree(AOBphyloseq_norm, ladderize="left", nodelabf=nodeplotboot(), color="Site", size="Size") 
+
+
 
 AOB.taxa.cor <- taxa.env.correlation(AOBphyloseq_norm, grouping_column="Site", method="pearson", pvalue.threshold=0.05,
                                      padjust.method="BH", adjustment=5, num.taxa=195, select.variables=NULL)

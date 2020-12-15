@@ -54,6 +54,14 @@ qiime metadata tabulate \
   --m-input-file taxonomy.qza \
   --o-visualization taxonomy.qzv
 
+# Building phylogenetic tree
+qiime phylogeny align-to-tree-mafft-fasttree \
+    --i-sequences rep-seqs-deblur.qza \
+    --o-alignment rep-seqs-aligned.qza \
+    --o-masked-alignment rep-seqs-aligned-masked.qza \
+    --o-tree rep-seqs-unrooted.qza \
+    --o-rooted-tree rep-seqs-rooted.qza
+
 
 # 1 Export OTU table
 # - phyloseq => replace with where you'd like to output directory
@@ -75,3 +83,9 @@ biom convert \
 qiime tools export \
   --input-path taxonomy_job.qza \
   --output-path phyloseq
+
+3. Exporting the phylogenetic tree
+qiime tools export \
+  --input-path rep-seqs-rooted.qza \
+  --output-path exported-tree
+
