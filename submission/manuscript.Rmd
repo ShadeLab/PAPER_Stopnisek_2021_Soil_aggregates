@@ -1,0 +1,105 @@
+---
+output:
+  pdf_document:
+    keep_tex: true
+  word_document: default
+geometry: margin=1.0in
+font-size: 12pt
+header-includes:
+  - \usepackage{setspace}
+  - \doublespacing
+  - \usepackage[left]{lineno}
+  - \linenumbers
+
+---
+
+# Resources but not soil particle size influence ammonia oxidizing communities
+
+\vspace{10mm}
+
+Nejc Stopnisek${^\text{1}}$${^\dagger}$, Michelle Quigley${^\text{2}}$${^\dagger}$, Dan Chitwood${^\text{2,3}}$ and Ashley Shade${^\text{1,4,5,6}}$${^\ddagger}$
+
+\vspace{20mm}
+${^\text{1}}$Department of Microbiology & Molecular Genetics, Michigan State University, East Lansing, MI 48823, USA
+
+${^\text{2}}$Department of Horticulture, Michigan State University, East Lansing, MI 48823, USA
+
+${^\text{3}}$ Department of Computational Mathematics, Science and Engineering, Michigan State University, East Lansing, MI 48823, USA
+
+${^\text{4}}$ Department for Plant, Soil and Microbial Sciences, Michigan State University, East Lansing, MI 48823, USA
+
+${^\text{5}}$ Plant Resilience Institute, Michigan State University, East Lansing, MI 48823, USA
+
+${^\text{6}}$ Great Lakes Bioenergy Research Center, Michigan State University, East Lansing, MI 48823, USA
+
+
+${^\dagger}$ Contributed equally
+
+${^\ddagger}$ Corresponding author: \href{mailto:shadeash@msu.edu}{shadeash@msu.edu}
+
+\vspace{40mm}
+
+**Key words**: Soil particles, microbiome, AOA, AOB, X-Ray CT, ammonia oxidation
+
+\newpage
+
+## Abstract
+
+\newpage
+
+## Introduction
+
+Ammonia oxidation first step in nitrification carried out by archaea (AOA) and bacteria (AOB). Recently, a group of bacteria (i.e. comammox) has been described, known to perform complete nitrification. While little is known about the distribution of comammox organisms in the soil, we have a large number of studies investigating the environmental and evolutionary preferences of AOA and AOB in the soil environment.
+AOA more abundant and active then AOB in soil
+AOA have been shown to typically outnumber the abundance of AOB in natural soils, however this is not true for managed soils where nitrogen sources are usually added. AOA and AOB commonly compete for same resources, however research has shown that AOA 
+This pattern is driven by the preference of AOA and AOB for same nitrogen sources but    
+
+
+We hypothesized that the co-occurrence of ammonia oxidizing archaea (__AOA__) and ammonia oxidizing bacteria (__AOB__) in soil environment is due to the soil chemical and size heterogeneity which they preferentially and selectively occupy.
+
+\newpage
+
+## Materials and Methods
+
+### Rhizotron setup
+
+
+### Soil collection and preparation
+
+
+### DNA isolation and sequencing
+
+
+### Determining the soil particle surface area
+
+
+### Amplicon sequence analysis
+
+
+### Statistical analysis
+
+
+
+\newpage
+
+## Results
+We found that:
+
+1. Microbial richness is influenced by the soil particle size.  
+2. Chemical properties of soil particles are very different and are site dependent.
+3. Ammonia oxidizing communities are influenced by the ammonium concentrations and not soil article sizes.
+4. Richness of AOA>AOB.
+5. Soil particle surface area.
+
+\newpage
+
+## Discussion
+
+
+\newpage
+
+## Acknowledgments
+
+## References
+
+\newpage
