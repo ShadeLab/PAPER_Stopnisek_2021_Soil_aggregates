@@ -1,4 +1,4 @@
-# Soil particle size, soil chemistry and ammonia oxydizers
+# Soil particle size, soil chemistry and ammonia oxidizers
 
 This is the repository for the project *"Ammonia oxidizing communities are more impacted by the soil nitrogen species than by the soil particle size"*.
 
