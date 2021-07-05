@@ -3,18 +3,18 @@ title: "AOA amoA amplicon read processing overview"
 output: html_notebook
 ---
 
-This is the reported staistics from processing the AOA amoA amplicons using DADA2. For generating amplicon we followed a protocol described by Aigle et al., [2019](https://environmentalmicrobiome.biomedcentral.com/articles/10.1186/s40793-019-0342-6). 
+This is the reported statistics from processing the AOA _amoA_ amplicons using DADA2. For generating amplicons we followed a protocol described by Aigle et al., [2019](https://environmentalmicrobiome.biomedcentral.com/articles/10.1186/s40793-019-0342-6). 
 
-We modified the published pipline and it consists of following steps:
+We modified the published pipeline and it consists of following steps:
 
 + removing primers using cutadapt
 + using DADA2 in R for read processing and read denoising (generating ASV)
 + translating ASV read (comparing and matching to the reading frame of references) to remove contamination and proteins with stop codons
-+ generating AA(amino acid) ASVs
++ generating AA (amino acid) ASVs
 
 *What modification were made?*
 
-1. The proposed workflow by Aigle et al. used trimming off primers by cutting the exact number of bp from each read. In our case it turned out that not all reads had the full lenght primers. To avoid issues when translating reads we decided to use cutadapt instead which removed precisely all the regeon associated with the primer.
+1. The proposed workflow by Aigle et al. used trimming off primers by cutting the exact number of bp from each read. In our case it turned out that not all reads had the full lenght primers. To avoid issues when translating reads we decided to use cutadapt instead which removed precisely all the region associated with the primer.
 2. We used DADA2 throughout the workflow. Denoising in the published work was done using usearch (generating ZOTUs). 
 3. Reads were concatenated in DADA2 using the argument `justConcatenate=TRUE` at the merging step. Reads were truncated to 230bp.
 4. We used amino acid ASVs for downstream analysis instead of nucleotide sequences. 
@@ -31,7 +31,7 @@ do
 
 done
 ```
-The script is provided also in the repositoy under the name stepI_trim_primer.txt.
+The script is provided also in the repository under the name stepI_trim_primer.txt.
 
 ### Read filtering and read denoising
 DADA2 was used for processing reads - quality control, trimming and denoising. 
@@ -68,14 +68,10 @@ seqtab <- dada2::makeSequenceTable(mergers, orderBy = "abundance")
 
 #' Remove chimera
 seqtab.nochim <- dada2::removeBimeraDenovo(seqtab, method="consensus", multithread=TRUE, verbose=TRUE)
+```
 
-#' Save ASV as fasta
-uniquesToFasta(getUniques(seqtab.nochim), fout="ASV.fa", ids=paste0("ASV", seq(length(getUniques(seqtab.nochim)))))
-
-#rename the ASV from read sequence to ASV#
-asvTable=seqtab.nochim
-colnames(asvTable)=paste0("ASV", seq(length(getUniques(asvTable))))
-
+Summary statistics from read processing steps:
+```{r, warning=FALSE, echo=FALSE}
 #How many chimeric reads are there?
 sum(asvTable)/sum(seqtab)
 
@@ -85,8 +81,41 @@ track <- cbind(out, sapply(dadaFs, getN), sapply(dadaRs, getN), sapply(mergers, 
 # If processing a single sample, remove the sapply calls: e.g. replace sapply(dadaFs, getN) with getN(dadaFs)
 colnames(track) <- c("input", "filtered", "denoisedF", "denoisedR", "merged", "nonchim")
 rownames(track) <- sample.names
-head(track)
 
+data.frame(track) %>%
+  gt(rowname_col = "sampleID") %>%
+  tab_stubhead(label = "Sample ID") %>%
+  tab_header(
+    title = md("**Read processing Statistics**"),
+    subtitle = "Using DADA2 package in R and amoA AOA amplicons") %>%
+  tab_row_group(
+    group = "Montcalm",
+    rows = 1:21) %>%
+  tab_row_group(
+    group = "Saginaw Valley",
+    rows = 22:42) %>%
+  cols_label(
+    input = "Input",
+    filtered = "Quality\nfiltered",
+    denoisedF = "Denoised forward",
+    denoisedR = "Denoised reverse",
+    merged = "Merged",
+    nonchim = "Without chimera")
+```
+
+
+```{r}
+#' Save ASV as fasta
+uniquesToFasta(getUniques(seqtab.nochim), fout="ASV.fa", ids=paste0("ASV", seq(length(getUniques(seqtab.nochim)))))
+
+#rename the ASV from read sequence to ASV#
+asvTable=seqtab.nochim
+colnames(asvTable)=paste0("ASV", seq(length(getUniques(asvTable))))
+```
+
+*_Nitrososphaera viennensis EN76_* (NZ_CP007536.1:2292787-2293437) and *_Candidatus Nitrososphaera_* sp. (MNEV01000045.1:23581-24231).
+
+```{r}
 #create ASV table for phyloseq
 
 samples.out <- rownames(asvTable)

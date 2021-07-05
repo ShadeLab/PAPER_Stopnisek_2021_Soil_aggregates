@@ -17,7 +17,7 @@ library(metagenomeSeq)
 library(qiime2R)
 library(metagMisc)
 
-setwd('~/Documents/git/SoilAggregates/')
+setwd('~/Documents/git/SoilAggregates/16S/')
 
 #' Using data generated in Oct 2020
 #' OTU tables created using QIIME2, R1 only.
@@ -25,6 +25,11 @@ setwd('~/Documents/git/SoilAggregates/')
 otu=read.table("otu_table.txt", header = T, row.names = 1)
 tax=read.delim("taxonomy.tsv",row.names = 1)
 map=read.csv('metadata_table.csv', row.names = 1)
+
+joinedDF=as_tibble(left_join(otu, tax))
+joined_filteredDF=joinedDF[joinedDF$OTUID %in% rownames(OTU.rare),]
+joined_filteredDF=select(joined_filteredDF, -neg1, -neg2, -Confidence, -OTUID)
+write_delim(joined_filteredDF, 'asv_tax.tsv')
 
 tax=tax[-2]
 tax_df <- colsplit(tax$Taxon, '; ', names =  c("Kingdom", "Phylum", "Class", 
@@ -46,7 +51,7 @@ otuPhyloseq_filt <- otuPhyloseq_filt %>%
   subset_taxa((Family != "Mitochondria") | is.na(Family))
 
 otuPhyloseq_filt <- otuPhyloseq_filt %>%
-  subset_taxa((Class != "Chloroplast") | is.na(Class))
+  subset_taxa((Family != "Chloroplast") | is.na(Class))
 
 filtered_otus <- phyloseq_to_df(otuPhyloseq_filt, addtax=T, addtot=T)
 
@@ -66,6 +71,9 @@ otu_filtered_complete <- otu_filtered[complete.cases(otu_filtered),]
 
 tax_filtered <- phyloseq_to_df(otuPhyloseq_filt_decont_samp, addtax=T, addtot=F)
 tax_filtered <- tax_filtered[1:8]
+
+tax_filtered %>%
+  filter(Family == 'Chloroplast')
 
 rownames(otu_filtered_complete) <- otu_filtered_complete$OTU
 otu_filtered_complete$Total <- NULL
@@ -93,26 +101,66 @@ map_filtered$Richness <- s
 map_filtered$Shannon <- h
 map_filtered$Pielou <- pielou 
 
-Richness <- ggplot(map_filtered, aes(x=as.factor(Size_fraction),y=Richness, col=Site, group=Site)) +
-  #geom_boxplot() +
-  geom_point(size=1)+
-  geom_smooth(method = "lm", se = FALSE, aes(col=Site))+
+Richness <- ggplot(map_filtered, aes(x=as.factor(Size_fraction),y=Richness, fill=Site)) +
+  geom_boxplot() +
   scale_fill_manual(values = c("#009e73", "#0072b2")) + 
   scale_color_manual(values = c("#009e73", "#0072b2")) + 
-  labs(x='Size (mm)', y='Richness') +
-  theme_classic()
+  labs(x=NULL, y='Richness') +
+  #geom_signif(test="wilcox.test", comparisons = list(c("MRC", "SVERC")), map_signif_level = TRUE) +
+  #facet_grid(~Size_fraction, scales = 'free_x') +
+  theme_classic() +
+  theme(legend.position = c(.2,.2),
+        axis.text.x = element_blank())
 
-Shannon <- ggplot(map_filtered, aes(x=as.factor(Size_fraction),y=Shannon, col=Site, group=Site)) +
-  #geom_boxplot() +
-  geom_point(size=1)+
-  geom_smooth(method = "lm", se = FALSE, aes(col=Site))+
+Shannon <- ggplot(map_filtered, aes(x=as.factor(Size_fraction),y=Shannon, fill=Site)) +
+  geom_boxplot() +
   scale_fill_manual(values = c("#009e73", "#0072b2")) + 
   scale_color_manual(values = c("#009e73", "#0072b2")) + 
-  labs(x='Size (mm)', y='Shannon') +
-  theme_classic()
+  labs(x='Soil particle size (mm)', y='Shannon') +
+  theme_classic() +
+  theme(legend.position = 'none')
 
 ggarrange(Richness, Shannon, labels = c("A", "B"), nrow = 2) %>%
-  ggexport(filename = "alpha_div.pdf", width = 4, height = 4)
+  ggexport(filename = "figures/alpha_div.pdf", width = 4, height = 5)
+
+library(rstatix)
+library(ggpubr)
+
+#' Alpha div statistics
+#' Are MRF and SVERC samples at different soil particle sizes different?
+stat.test.rich <- map_filtered %>%
+  group_by(Size_fraction) %>%
+  t_test(Richness ~ Site) %>%
+  adjust_pvalue(method = "BH") %>%
+  add_significance()
+stat.test.rich
+#' No significance for Richness
+
+stat.test.shan <- map_filtered %>%
+  group_by(Size_fraction) %>%
+  t_test(Shannon ~ Site) %>%
+  adjust_pvalue(method = "BH") %>%
+  add_significance()
+stat.test.shan
+#' Significant diff at the sizes 1 mm, 0.056mm and <0.056mm for Shannon.
+
+#' Does size affect alpha diversity within site?
+stat.test.rich.size <- map_filtered %>%
+  group_by(Site) %>%
+  t_test(Richness ~ Size_fraction) %>%
+  adjust_pvalue(method = "BH") %>%
+  add_significance()
+stat.test.rich.size
+#' No significant difference
+
+stat.test.shan.size <- map_filtered %>%
+  group_by(Site) %>%
+  t_test(Shannon ~ Size_fraction) %>%
+  adjust_pvalue(method = "BH") %>%
+  add_significance()
+stat.test.shan.size
+#' No significant difference
+
 
 #' Beta diversity
 #' Combined dataset
@@ -183,9 +231,9 @@ pcoa.BC.S <- ggplot(mapS, aes(x=Axis1.BC.S, y=Axis2.BC.S)) +
   geom_point(aes(col=Site, size=Size_fraction))+
   scale_color_manual(values = c("#0072b2")) + 
   #scale_alpha_continuous(range = c(0.1, 1)) + 
-  theme(legend.position = 'none')+
+  theme(legend.position =c(.4,.8))+
   labs(x=paste('PCoA1 (',100*round(ax1.bc.otu.S,3),'%)',sep=''),y=paste('PCoA2 (',100*round(ax2.bc.otu.S,3),'%)', sep=''), 
-       alpha='Size (mm)', title='Bray-Curtis')
+       alpha='Size (mm)', title='SVERC')
 
 pcoa.J.S <- ggplot(mapS, aes(x=Axis1.J.S, y=Axis2.J.S)) +
   theme_classic() +
@@ -222,7 +270,7 @@ pcoa.BC.M <- ggplot(mapM, aes(x=Axis1.BC.M, y=Axis2.BC.M)) +
   scale_alpha_continuous(range = c(0.1, 1)) + 
   theme(legend.position = 'none')+
   labs(x=paste('PCoA1 (',100*round(ax1.bc.otu.M,3),'%)',sep=''),y=paste('PCoA2 (',100*round(ax2.bc.otu.M,3),'%)', sep=''), 
-       alpha='Size (mm)', title='Bray-Curtis')
+       alpha='Size (mm)', title='MRC')
 
 pcoa.J.M <- ggplot(mapM, aes(x=Axis1.J.M, y=Axis2.J.M)) +
   theme_classic() +
@@ -233,22 +281,57 @@ pcoa.J.M <- ggplot(mapM, aes(x=Axis1.J.M, y=Axis2.J.M)) +
   labs(x=paste('PCoA1 (',100*round(ax1.j.otu.M,3),'%)',sep=''),y=paste('PCoA2 (',100*round(ax2.j.otu.M,3),'%)', sep=''), 
        alpha='Size (mm)', title="Jaccard")
 
-ggarrange(pcoa.BC.M,pcoa.BC.S ,pcoa.J.M, pcoa.J.S,
-          labels = c("A", "B", "C", "D"), ncol = 2, nrow = 2) %>%
-  ggexport(filename = "PCoA_site.pdf", width = 4.5, height = 4)
+ggarrange(pcoa.BC.M,pcoa.BC.S ,#pcoa.J.M, pcoa.J.S,
+          labels = c("A", "B"), 
+                     #"C", "D"), 
+          ncol = 2
+          ) %>%
+  ggexport(filename = "figures/PCoA_site_16S.pdf", width = 7, height = 3.5)
 
-#' Investigating the dynamics in AOA and OAB communities
 
+#' Testing the effect of size, site and chemical parameters on the community 
+#' using PERMANOVA
+#' Factors: Site, Size_fraction, OM, NO3, NH4, N
+
+#' Full dataset (M and S) 
+adonis(otu.BC~map_filtered$Site) # R2=0.689, p=0.001
+
+#' M and S separated 
+adonis(otu.S.BC~mapS$Size_fraction) # R2=0.249, p=0.001
+adonis(otu.M.BC~mapM$Size_fraction) # R2=0.256, p=0.001
+
+#' Chemical parameters for full SVERC
+adonis(otu.S.BC~mapS$OM)  # R2=0.17407, p=0.001
+adonis(otu.S.BC~mapS$N)   # R2=0.09333, p=0.026
+adonis(otu.S.BC~mapS$NO3) # R2=0.12521, p=0.006
+adonis(otu.S.BC~mapS$NH4) # R2=0.10714, p=0.018
+
+#' Chemical analysis for MRC where 2mm soil particles are removed because no 
+#' chemistry was done for them
+otu.M.BC.2mm <- vegdist(t(OTU.M.rare[,-c(16,17,18)]), method="bray")
+mapM.2=mapM %>% filter(Size_fraction<2)
+adonis(otu.M.BC.2mm~mapM.2$OM) # R2=0.11773, p=0.008
+adonis(otu.M.BC.2mm~mapM.2$N)  # R2=0.13145, p=0.005
+adonis(otu.M.BC.2mm~mapM.2$NO3)# R2=0.11737, p=0.007
+adonis(otu.M.BC.2mm~mapM.2$NH4)# R2=0.13254, p=0.002
+
+#################################
+#' Investigating the dynamics in AOA and OAB communities based on the abundance 
+#' of genera known to contain ammonia oxidizing members
+ 
 map_filtered$sampleID <- rownames(map_filtered)
 names(map_filtered)
 
-AOA_AOB_plot<- data.frame(OTU=rownames(rel.abun.all), rel.abun.all) %>%
+AOA_AOB_NH4_plot<- data.frame(OTU=rownames(rel.abun.all), rel.abun.all) %>%
   gather(sampleID, abun, -OTU) %>%
   left_join(tax_filtered) %>%
   left_join(map_filtered) %>%
   mutate(taxo= paste(Phylum, Class,Order, Family, Genus, Species, sep='.')) %>%
-  filter(str_detect(string = taxo, pattern = c('Crenarcha','Nitroso','Nitrososphae','Nitrosotal', 'Nitrosomonas', 'Nitrosococcus', 'Nitrosospira', 'Nitrosovibrio', 
-         'Nitrosolobus'))) %>%
+  filter(str_detect(string = taxo, pattern = c('Crenarcha','Nitroso',
+                                               'Nitrososphae','Nitrosotal', 
+                                               'Nitrosomonas', 'Nitrosococcus', 
+                                               'Nitrosospira', 'Nitrosovibrio', 
+                                               'Nitrosolobus'))) %>%
   group_by(Phylum, Site, Size_fraction,Replicate, NH4, OM, N) %>%
   summarise(n_abun=sum(abun)/length(unique(sampleID))) %>%
   ggplot(aes(y=n_abun, x=NH4, group=Phylum, col=Phylum)) +
@@ -258,7 +341,26 @@ AOA_AOB_plot<- data.frame(OTU=rownames(rel.abun.all), rel.abun.all) %>%
   geom_smooth(method = "lm", se = F, aes(col=Phylum))+
   facet_wrap(~Site, scales = 'free') +
   theme_classic()
-  
+
+AOA_AOB_size_plot<- data.frame(OTU=rownames(rel.abun.all), rel.abun.all) %>%
+  gather(sampleID, abun, -OTU) %>%
+  left_join(tax_filtered) %>%
+  left_join(map_filtered) %>%
+  mutate(taxo= paste(Phylum, Class,Order, Family, Genus, Species, sep='.')) %>%
+  filter(str_detect(string = taxo, pattern = c('Crenarcha','Nitroso',
+                                               'Nitrososphae','Nitrosotal', 
+                                               'Nitrosomonas', 'Nitrosococcus', 
+                                               'Nitrosospira', 'Nitrosovibrio', 
+                                               'Nitrosolobus'))) %>%
+  group_by(Phylum, Site, Size_fraction,Replicate, NH4, OM, N) %>%
+  summarise(n_abun=sum(abun)/length(unique(sampleID))) %>%
+  ggplot(aes(y=n_abun, x=as.factor(Size_fraction), color=Phylum, group=Phylum)) +
+  geom_boxplot(position = 'dodge') +
+  scale_color_manual(values = c("black", "#0072b2"), labels = c("AOA (n=9)", "AOB (n=12)")) + 
+  labs(x='Soil particle size (mm)', y="Relative abundance", size = 'Size (mm)')+
+  facet_wrap(~Site, scales = 'free') +
+  theme_classic()
+
 data.frame(OTU=rownames(rel.abun.all), rel.abun.all) %>%
   gather(sampleID, abun, -OTU) %>%
   left_join(tax_filtered) %>%
@@ -322,153 +424,11 @@ ggarrange(NH4,NO3,CN, CN_correlation,
           labels = c("A", "B", "C", "D"), ncol = 2, nrow = 2) %>%
   ggexport(filename = "soil_parameters.pdf", width = 4.5, height = 4)
 
-#' Species turnover analysis
-#' Using betapart package
-#' Andres Baselga et al
+###########################################################################
+#' Turnover analysis
+#' How many taxa appear at a timepoint that were not in any previous size 
+#' fraction? 
 
-library(betapart)
-
-# pairwise comparison  
-BinaryOTU <- 1*((OTU.rare>0)==1)
-#OTU.rare rarefied dataset
-#otu_filtered_complete raw dataset
-
-m.OTU <- BinaryOTU[,1:21]
-m.OTU <- m.OTU[rowSums(m.OTU)>0,]
-
-s.OTU <- BinaryOTU[,22:42]
-s.OTU <- s.OTU[rowSums(s.OTU)>0,]
-
-pair.jac=beta.pair(t(BinaryOTU),index.family = 'jaccard')
-
-m.core=betapart.core(t(m.OTU))
-m.multi=beta.multi(m.core)
-
-pair.jac.m=beta.pair(t(m.OTU),index.family = 'jaccard')
-
-pair.jac.s=beta.pair(t(s.OTU),index.family = 'jaccard')
-
-
-# $ beta.jtu is turnover, beta.jne is nestedness, beta.jac is combined Jaccard
-#rar.16s.cohort.ex.j$beta.jtu
-
-distmelt <- function(d){
-  d.melt <- d %>% as.matrix %>% as.data.frame %>% tibble::rownames_to_column() %>% melt()
-  d.melt$variable <- as.character(d.melt$variable)
-  return(d.melt[d.melt$variable > d.melt$rowname, ])
-}
-
-jaccard.m.melt <- pair.jac.m$beta.jac %>% distmelt()
-turnover.m.melt <- pair.jac.m$beta.jtu %>% distmelt()
-nestedness.m.melt <- pair.jac.m$beta.jne %>% distmelt()
-
-jaccard.s.melt <- pair.jac.s$beta.jac %>% distmelt()
-turnover.s.melt <- pair.jac.s$beta.jtu %>% distmelt()
-nestedness.s.melt <- pair.jac.s$beta.jne %>% distmelt()
-
-jaccard.m.melt$Type <- "Total"
-turnover.m.melt$Type <- "Turnover"
-nestedness.m.melt$Type <- "Nestedness"
-
-jaccard.s.melt$Type <- "Total"
-turnover.s.melt$Type <- "Turnover"
-nestedness.s.melt$Type <- "Nestedness"
-
-
-m.melt <- rbind(jaccard.m.melt, turnover.m.melt, nestedness.m.melt)
-
-s.melt <- rbind(jaccard.s.melt, turnover.s.melt, nestedness.s.melt)
-
-m.melt %>% ggplot(aes(y = variable, x = rowname, fill = value)) +
-  geom_raster() + facet_grid(~Type) + theme_classic() +
-  theme(axis.text.x = element_blank(),
-        axis.title = element_blank()) +
-  #scale_fill_viridis(limits=c(0,1)) +
-  scale_fill_gradient(low = "black", high = "#009e73", limits=c(0,1))
- 
-s.melt %>% ggplot(aes(y = variable, x = rowname, fill = value)) +
-  geom_raster() + facet_grid(~Type) + theme_classic() +
-  theme(axis.text.x = element_blank(),
-        axis.title = element_blank()) +
-  #scale_fill_viridis(limits=c(0,1), option = "A") +
-  scale_fill_gradient(low = "black", high = "#0072b2",limits=c(0,1))
-
-# Add columns listing the categories that the samples are in. Match them using grep.
-fix_rows <- function(df){
-  
-  try(
-    # try() to add nice labels, but don't mentioned it if there is no $Type
-    df$Type <- factor(df$Type, levels = c("Total", "Nestedness", "Turnover")), silent = T
-  )
-  
-  df$row_cat <- 2.000
-  df$row_cat[grepl(".min", df$rowname, fixed = T)] <- 0.050
-  df$row_cat[grepl(".005", df$rowname, fixed = T)] <- 0.056
-  df$row_cat[grepl(".01", df$rowname, fixed = T)] <- 0.180
-  df$row_cat[grepl(".02", df$rowname, fixed = T)] <- 0.250
-  df$row_cat[grepl(".05", df$rowname, fixed = T)] <- 0.500
-  df$row_cat[grepl(".1", df$rowname, fixed = T)] <- 1.000
-
-  df$var_cat <- 2.000
-  df$var_cat[grepl(".min", df$variable, fixed = T)] <- 0.050
-  df$var_cat[grepl(".005", df$variable, fixed = T)] <- 0.056
-  df$var_cat[grepl(".01", df$variable, fixed = T)] <- 0.180
-  df$var_cat[grepl(".02", df$variable, fixed = T)] <- 0.250
-  df$var_cat[grepl(".05", df$variable, fixed = T)] <- 0.500
-  df$var_cat[grepl(".1", df$variable, fixed = T)] <- 1.000
-
-  df$var_cat <- factor(df$var_cat, levels = c(0.050,0.056,0.180,0.250,0.500,1.000,2.000))
-  
-  return(df)
-}
-
-m.melt.adj <- m.melt %>% fix_rows
-
-s.melt.adj <- s.melt %>% fix_rows()
-
-
-plot_dm <- function(df, ylab = "Sampling Day"){
-  return(
-    ggplot(df, aes(y = variable, x = rowname, fill = value)) + geom_raster() +
-      theme(strip.background = element_blank(),
-            axis.text = element_blank(),
-            axis.ticks = element_blank(),
-            axis.title.x = element_blank(),
-            panel.grid = element_blank(),
-            panel.border = element_blank(),
-            legend.position = c(.95,.4)) +
-      labs(y = ylab, fill = "Binary \n Jaccard \nDistance") +
-      facet_grid(var_cat ~ Type + row_cat, scales = "free", switch = "y")
-  )
-}
-
-m.melt.adj %>%
-  plot_dm(ylab = "Size (mm)") +
-  scale_fill_viridis(limits=c(0,1))
-
-s.melt.adj %>%
-  plot_dm(ylab = "Size (mm)") +
-  scale_fill_viridis(limits=c(0,1), option = "A")
-
-#' Correlates soil particle size better with nestedness or turnover?
-#' Using adonis() function to test how much variation of nestedness and turnover can be attributed to soil particle size
-
-m.map=map_filtered[map_filtered$Site == 'MRC',]
-s.map=map_filtered[map_filtered$Site != 'MRC',]
-
-day.16s <- rbind(
-  adonis(pair.jac.m$beta.jac ~ as.factor(Size_fraction), m.map)$aov.tab %>% data.frame %>% filter(Df == '6') %>% data.frame(Site= 'MRC',Type = "Total"), 
-  adonis(pair.jac.m$beta.jtu ~ as.factor(Size_fraction), m.map)$aov.tab %>% data.frame %>% filter(Df == "6") %>% data.frame(Site= 'MRC',Type = "Turnover"), 
-  adonis(pair.jac.m$beta.jne ~ as.factor(Size_fraction), m.map)$aov.tab %>% data.frame %>% filter(Df == "6") %>% data.frame(Site= 'MRC',Type = "Nestedness"),
-  adonis(pair.jac.s$beta.jac ~ as.factor(Size_fraction), s.map)$aov.tab %>% data.frame %>% filter(Df == '6') %>% data.frame(Site= 'SVERC',Type = "Total"), 
-  adonis(pair.jac.s$beta.jtu ~ as.factor(Size_fraction), s.map)$aov.tab %>% data.frame %>% filter(Df == "6") %>% data.frame(Site= 'SVERC',Type = "Turnover"), 
-  adonis(pair.jac.s$beta.jne ~ as.factor(Size_fraction), s.map)$aov.tab %>% data.frame %>% filter(Df == "6") %>% data.frame(Site= 'SVERC',Type = "Nestedness")
-)
-
-
-
-#' How many taxa appear at a timepoint that were not in any previous size fraction 
-#' 
 OTUdf=otu_table(as.matrix(rel.abun.all), taxa_are_rows = T)
 taxPhylo=tax_filtered
 rownames(taxPhylo)=taxPhylo$OTU
@@ -559,11 +519,39 @@ total.all.melt %>%
         #, panel.spacing.x = unit(30, "pt") # add spacing between plots for equations
 ) 
 
+###############################
+#' Functional potential of the microbiome
+#' We used FAPROTAX to predict potential functional guild in the system.
+library(pheatmap)
+functions <- read.delim('Documents/git/SoilAggregates/16S/func_table_norm.tsv', row.names = 1)
+rownames(functions_filt)
+#' filter out functions that are not present in the microbiome
+functions_filt=functions[rowSums(functions)>0,]
+#' remove animal and disease related functions including chemoheterotrophy and 
+#' aerobic_chemoheterotrophy because of high abundance but low power of 
+#' discriminating samples/sites/samples
+functions_filter=functions_filt[-c(31,32,33,34,35,36,37,38,48,49,59),]
+#' removing also other functions that have very low abundance
+rownames(functions_filter)
+functions_filter=functions_filter[-c(1, #methanotrophy
+                                     9, #sulfate_respiration
+                                     12, #respiration_of_sulfur_compounds
+                                     18, #knallgas_bacteria
+                                     21, #nitrate_ammonification
+                                     39, #fumarate_respiration
+                                     27, #dark_thiosulfate_oxidation
+                                     35, #iron_respiration
+                                     22, #nitrite_ammonification
+                                     26, #dark_sulfide_oxidation
+                                     19, #dark_hydrogen_oxidation
+                                     28 #dark_oxidation_of_sulfur_compounds
+                                     ),]
+#' filter out low prevalent functions (less then 10)
+FunctionsPresence=data.frame(count=rowSums(1*((functions_filter>0)==1)))
+abundantFunctions=rownames(FunctionsPresence)[FunctionsPresence>10]
 
+pheatmap(functions_filter[rownames(functions_filter) %in% abundantFunctions,], 
+         color=colorRampPalette(rev(brewer.pal(n = 11,name="RdYlBu")))(100),
+         cutree_rows = 7)
 
-library(DivNet)
-if (!requireNamespace("BiocManager", quietly=TRUE)) 
-  install.packages("BiocManager")
-BiocManager::install("metagenomeSeq")
-library(metagenomeSeq)
 

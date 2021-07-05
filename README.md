@@ -7,8 +7,8 @@ We hypothesized that the co-occurrence of ammonia oxidizing archaea (__AOA__) an
 
 We found that:
 
-1. Microbial richness is influenced by the soil particle size  
-2. Chemical properties of soil particles are very different and are site dependent
-3. Ammonia oxidizing communities are influenced by the ammonium concentrations and not soil article sizes.
+1. Microbial richness is not influenced by the soil particle size  
+2. Chemical properties of soil particles are very different and are site specific
+3. Ammonia oxidizing communities are influenced by the ammonium concentrations and not soil particle sizes.
 4. Richness of AOA>AOB
-5. Soil particle surface area
+5. Soil particle surface area is the highest in smaller soil particles (same true for surface to volume ratio)

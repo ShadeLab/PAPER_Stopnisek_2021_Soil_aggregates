@@ -3,18 +3,18 @@ title: "AOB amoA amplicon read processing overview"
 output: html_notebook
 ---
 
-This is the reported staistics from processing the AOB amoA amplicons using DADA2. For generating amplicon we followed a protocol described by Aigle et al., [2019](https://environmentalmicrobiome.biomedcentral.com/articles/10.1186/s40793-019-0342-6). 
+This is the reported statistics from processing the AOB _amoA_ amplicons using DADA2. For generating amplicon we followed a protocol described by Aigle et al., [2019](https://environmentalmicrobiome.biomedcentral.com/articles/10.1186/s40793-019-0342-6). 
 
-We modified the published pipline and it consists of following steps:
+We modified the published pipeline and it consists of following steps:
 
 + removing primers using cutadapt
 + using DADA2 in R for read processing and read denoising (generating ASV)
 + translating ASV read (comparing and matching to the reading frame of references) to remove contamination and proteins with stop codons
-+ generating AA(amino acid) ASVs
++ generating AA (amino acid) ASVs
 
 *What modification were made?*
 
-1. The proposed workflow by Aigle et al. used trimming off primers by cutting the exact number of bp from each read. In our case it turned out that not all reads had the full lenght primers. To avoid issues when translating reads we decided to use cutadapt instead which removed precisely all the regeon associated with the primer.
+1. The proposed workflow by Aigle et al. used trimming off primers by cutting the exact number of bp from each read. In our case it turned out that not all reads had the full length primers. To avoid issues when translating reads we decided to use cutadapt instead which removed precisely all the region associated with the primer.
 2. We used DADA2 throughout the workflow. Denoising in the published work was done using usearch (generating ZOTUs). 
 3. Instead of 229bp we used 240bp long fragments for merging
 4. We used amino acid ASVs for downstream analysis instead of nucleotide sequences. 
@@ -31,7 +31,7 @@ do
 	
 done
 ```
-The script is provided also in the repositoy under the name stepI_trim_primer.txt.
+The script is provided also in the repository under the name stepI_trim_primer.txt.
 
 ### Read filtering and read denoising
 DADA2 was used for processing reads - quality control, trimming and denoising. 
@@ -106,7 +106,7 @@ track %>%
 
 
 ### Translation of ASV reads
-First few ASV nucleotide sequnces were aligned to *Nitrosomonas europaea* (ENA|L08050|L08050.1) and *Nitrosospira multiformis* ATCC 25196 (NC_007614.1:c3171159-3170335) amoA sequence (see:AOB_ref_AA_alignment.fa) to understand where reading frmaes start in the ASVs. Since ASV reads are offset by 2bp we used [seqkit](https://bioinf.shenwei.me/seqkit/) to translate reads using 3rd bp as the strating point.
+First few ASV nucleotide sequences were aligned to *_Nitrosomonas europaea_* (ENA|L08050|L08050.1) and *_Nitrosospira multiformis_* ATCC 25196 (NC_007614.1:c3171159-3170335) _amoA_ sequence (see:AOB_ref_AA_alignment.fa) to understand where reading frames start in the ASVs. Since ASV reads are offset by 2bp we used [seqkit](https://bioinf.shenwei.me/seqkit/) to translate reads using 3rd bp as the starting point.
 
 Command is following:
 
@@ -114,14 +114,14 @@ Command is following:
 
 where -T 11 represent frame usage for bacteria, -f 3 start from 3rd base in the sequence, --clean removes the stop codon symbol * into X.
 
-For the downstream analysis we converted .fa to .tab using `seqkit fx2tab` comand.
+For the downstream analysis we converted .fa to .tab using `seqkit fx2tab` command.
 
-The ASV924",ASV959 ASV1021 and ASV1059 showed not to be amoA since their AA composition is very dissimilar to the rest. These and all reads containing stop codons were removed in later stages. 
+The ASV924,ASV959, ASV1021 and ASV1059 showed not to be _amoA_ since their AA composition is very dissimilar to the rest. These and all reads containing stop codons were removed in later stages. 
 
 ### Building phylogenetic tree
 Remaining amino acid sequences were used to build phylogenetic tree.
 
-We used MAFFT for the alignemnt:
+We used MAFFT for the alignment:
 
 ```{bash}
 ml GCC/9.3.0
