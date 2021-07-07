@@ -16,6 +16,9 @@ library(pheatmap)
 library(metagenomeSeq)
 library(qiime2R)
 library(metagMisc)
+install.packages('devtools')
+devtools::install_github('twbattaglia/btools')
+library(btools)
 
 setwd('~/Documents/git/SoilAggregates/16S/')
 
@@ -85,8 +88,9 @@ map_filtered=map[map$Type == 'sample',]
 map_filtered=map_filtered[order(rownames(map_filtered)),]
 
 colnames(otu_filtered_complete) == rownames(map_filtered)
+
 #-------------------------------------------------------------------------
-#Rarefiying data to 40000 reads per sample since the minimum is 42629 reads
+# Rarefying data to 40000 reads per sample since the minimum is 42629 reads
 set.seed(077)
 OTU.rare <- t(rrarefy(t(otu_filtered_complete), 40000)) 
 rel.abun.all <- decostand(OTU.rare, method = 'total', MARGIN = 2)
@@ -161,7 +165,49 @@ stat.test.shan.size <- map_filtered %>%
 stat.test.shan.size
 #' No significant difference
 
+#######################################
+# Calculating the phylogenetic diversity (Faith's diversity index (PD))
+library(btools)
+OTU.rare #rarefied OTU data subset  
 
+#' First create a combined dataset in phyoseq object to filter only rhizosphere 
+#' samples. I find it the easiest to use phyloseq for this task as it will 
+#' remove samples and taxa from all datasets at once (taxonomy, tree, ASV table) 
+tax_df=tax_filtered[tax_filtered$OTU %in% rownames(OTU.rare),]
+rownames(tax_df)=tax_df$OTU
+tax_df$OTU=NULL
+OTU = otu_table(OTU.rare, taxa_are_rows = T)
+TAX = tax_table(as.matrix(tax_df))
+SAM = sample_data(map_filtered[1:8])
+TREE=ape::read.tree('16S/16S_tree.nwk')
+physeq <- merge_phyloseq(phyloseq(OTU, TAX), SAM, TREE)
+
+PD <- estimate_pd(physeq) %>%
+  rownames_to_column('sample_ID')
+
+mapPD=map_filtered
+mapPD$sampleID
+
+PD %>%
+  left_join(mapPD, by=c('sample_ID' = 'sampleID')) %>%
+  ggplot(aes(x=factor(Size_fraction), y=PD, color=Site)) +
+  geom_boxplot() +
+  theme_classic()+
+  scale_color_manual(values = c("#009e73", "#0072b2")) +
+  labs(x=NULL) 
+
+#' Does phylogenetic signal/depth differ between soils and different soil 
+#' particle sizes?
+stat.test.pd <- PD %>%
+  left_join(mapPD, by=c('sample_ID' = 'sampleID')) %>%
+  group_by(Size_fraction) %>%
+  t_test(PD ~ Site) %>%
+  adjust_pvalue(method = "BH") %>%
+  add_significance()
+stat.test.pd  # No difference between the MRC and SVERC at a particular size
+
+
+#######################################################
 #' Beta diversity
 #' Combined dataset
 otu.BC <- vegdist(t(OTU.rare), method="bray")
@@ -292,7 +338,7 @@ ggarrange(pcoa.BC.M,pcoa.BC.S ,#pcoa.J.M, pcoa.J.S,
 #' Testing the effect of size, site and chemical parameters on the community 
 #' using PERMANOVA
 #' Factors: Site, Size_fraction, OM, NO3, NH4, N
-
+set.seed(001)
 #' Full dataset (M and S) 
 adonis(otu.BC~map_filtered$Site) # R2=0.689, p=0.001
 

@@ -261,20 +261,20 @@ ax2.j.asvAOA.M <- asvAOA.M.j.pcoa$eig[2]/sum(asvAOA.M.j.pcoa$eig)
 pcoa.BC.asvAOA.M <- ggplot(mapAOA.M, aes(x=Axis1.BC.M, y=Axis2.BC.M, size=Size, col=Site)) +
   theme_classic() +
   geom_point()+
-  scale_color_manual(values = c("#0072b2")) + 
+  scale_color_manual(values = c("#009e73")) + 
   theme(legend.position =c(.4,.8))+
   labs(x=paste('PCoA1 (',100*round(ax1.bc.asvAOA.M,3),'%)',sep=''),
        y=paste('PCoA2 (',100*round(ax2.bc.asvAOA.M,3),'%)', sep=''), 
-       alpha='Size (mm)', title='MRC_BC')
+       alpha='Size (mm)')
 
 pcoa.J.asvAOA.M <- ggplot(mapAOA.M, aes(x=Axis1.J.M, y=Axis2.J.M, size=Size, col=Site)) +
   theme_classic() +
   geom_point()+
-  scale_color_manual(values = c("#0072b2")) + 
+  scale_color_manual(values = c("#009e73")) + 
   theme(legend.position =c(.4,.8))+
   labs(x=paste('PCoA1 (',100*round(ax1.j.asvAOA.M,3),'%)',sep=''),
        y=paste('PCoA2 (',100*round(ax2.j.asvAOA.M,3),'%)', sep=''), 
-       alpha='Size (mm)', title='MRC_J')
+       alpha='Size (mm)')
 
 #' SVERC
 asvAOA.S=ASVaoa.rare[,as.character(mapAOA$Site)=='S']
@@ -299,9 +299,9 @@ pcoa.BC.asvAOA.S <- ggplot(mapAOA.S, aes(x=Axis1.BC.S, y=Axis2.BC.S, size=Size, 
   theme_classic() +
   geom_point()+
   scale_color_manual(values = c("#0072b2")) + 
-  theme(legend.position =c(.4,.8))+
+  theme(legend.position ='none')+
   labs(x=paste('PCoA1 (',100*round(ax1.bc.asvAOA.S,3),'%)',sep=''),y=paste('PCoA2 (',100*round(ax2.bc.asvAOA.S,3),'%)', sep=''), 
-       alpha='Size (mm)', title='SVERC')
+       alpha='Size (mm)')
 
 pcoa.J.asvAOA.S <- ggplot(mapAOA.S, aes(x=Axis1.J.S, y=Axis2.J.S, size=Size, col=Site)) +
   theme_classic() +
@@ -310,6 +310,33 @@ pcoa.J.asvAOA.S <- ggplot(mapAOA.S, aes(x=Axis1.J.S, y=Axis2.J.S, size=Size, col
   theme(legend.position =c(.4,.8))+
   labs(x=paste('PCoA1 (',100*round(ax1.j.asvAOA.S,3),'%)',sep=''),y=paste('PCoA2 (',100*round(ax2.j.asvAOA.S,3),'%)', sep=''), 
        alpha='Size (mm)', title='SVERC')
+
+#' Testing the effect of size, site and chemical parameters on the community 
+#' using PERMANOVA
+#' Factors: Site, Size, OM, NO3, NH4, N
+set.seed(002)
+#' Full dataset (M and S) 
+adonis(AOAasv.b.BC~mapAOA$Site) # R2=0.838, p=0.001
+
+#' M and S separated 
+adonis(asvAOA.S.BC~mapAOA.S$Size) # R2=0.551, p=0.001
+adonis(asvAOA.M.BC~mapAOA.M$Size) # R2=0.033, p=0.455
+
+#' Chemical parameters for full SVERC
+adonis(asvAOA.S.BC~mapAOA.S$OM)  # R2=0.271, p=0.001
+adonis(asvAOA.S.BC~mapAOA.S$N)   # R2=0.123, p=0.075
+adonis(asvAOA.S.BC~mapAOA.S$NO3) # R2=0.293, p=0.003
+adonis(asvAOA.S.BC~mapAOA.S$NH4) # R2=0.223, p=0.011
+
+#' Chemical analysis for MRC where 2mm soil particles are removed because no 
+#' chemistry was done for them
+asvAOA.M.BC.2mm <- vegdist(t(asvAOA.M[,-c(15,16,17)]), method="bray") # removing 2 mm samples
+mapAOA.M.2=mapAOA.M %>% filter(Size<2)
+adonis(asvAOA.M.BC.2mm~mapAOA.M.2$OM) # R2=0.257, p=0.038
+adonis(asvAOA.M.BC.2mm~mapAOA.M.2$N)  # R2=0.263, p=0.031
+adonis(asvAOA.M.BC.2mm~mapAOA.M.2$NO3)# R2=0.079, p=0.248
+adonis(asvAOA.M.BC.2mm~mapAOA.M.2$NH4)# R2=0.074, p=0.272
+
 
 TREE = read_tree("~/Documents/git/SoilAggregates/AOA/AOA_amino.tre")
 AOAphyloseq=phyloseq(otu_table(as.matrix(AOAtable), taxa_are_rows = T), sample_data(mapAOA), TREE)

@@ -299,10 +299,10 @@ pcoa.BC.asvAOB.M <- ggplot(mapAOB.M, aes(x=Axis1.BC.M, y=Axis2.BC.M, size=Size, 
   theme_classic() +
   geom_point()+
   scale_color_manual(values = c("#009e73")) + 
-  theme(legend.position =c(.4,.8))+
+  theme(legend.position ='none')+
   labs(x=paste('PCoA1 (',100*round(ax1.bc.asvAOB.M,3),'%)',sep=''),
        y=paste('PCoA2 (',100*round(ax2.bc.asvAOB.M,3),'%)', sep=''), 
-       alpha='Size (mm)', title='MRC_BC')
+       alpha='Size (mm)')
 
 pcoa.J.asvAOB.M <- ggplot(mapAOB.M, aes(x=Axis1.J.M, y=Axis2.J.M, size=Size, col=Site)) +
   theme_classic() +
@@ -336,17 +336,51 @@ pcoa.BC.asvAOB.S <- ggplot(mapAOB.S, aes(x=Axis1.BC.S, y=Axis2.BC.S, size=Size, 
   theme_classic() +
   geom_point()+
   scale_color_manual(values = c("#0072b2")) + 
-  theme(legend.position =c(.4,.8))+
+  theme(legend.position ='none')+
   labs(x=paste('PCoA1 (',100*round(ax1.bc.asvAOB.S,3),'%)',sep=''),y=paste('PCoA2 (',100*round(ax2.bc.asvAOB.S,3),'%)', sep=''), 
-       alpha='Size (mm)', title='SVERC')
+       alpha='Size (mm)')
 
 pcoa.J.asvAOB.S <- ggplot(mapAOB.S, aes(x=Axis1.J.S, y=Axis2.J.S, size=Size, col=Site)) +
   theme_classic() +
   geom_point()+
   scale_color_manual(values = c("#0072b2")) + 
-  theme(legend.position =c(.4,.8))+
+  theme(legend.position ='none')+
   labs(x=paste('PCoA1 (',100*round(ax1.j.asvAOB.S,3),'%)',sep=''),y=paste('PCoA2 (',100*round(ax2.j.asvAOB.S,3),'%)', sep=''), 
        alpha='Size (mm)', title='SVERC')
+
+# Create a plot combining all PCoA graphs (AOA and AOB, Bray-Curtis)
+ggarrange(pcoa.BC.asvAOA.M,pcoa.BC.asvAOA.S, 
+          pcoa.BC.asvAOB.M,pcoa.BC.asvAOB.S, 
+          labels = c("A", "B", "C", "D"), nrow = 2, ncol = 2)
+
+#' Testing the effect of size, site and chemical parameters on the community 
+#' using PERMANOVA
+#' Factors: Site, Size, OM, NO3, NH4, N
+set.seed(003)
+
+#' Full dataset (M and S) 
+adonis(asvAOB.b.BC~mapAOB$Site) # R2=0.919, p=0.001
+
+#' M and S separated 
+adonis(asvAOB.S.BC~mapAOB.S$Size) # R2=0.311, p=0.001
+adonis(asvAOB.M.BC~mapAOB.M$Size) # R2=0.452, p=0.001
+
+#' Chemical parameters for full SVERC
+adonis(asvAOB.S.BC~mapAOB.S$OM)  # R2=0.196, p=0.003
+adonis(asvAOB.S.BC~mapAOB.S$N)   # R2=0.078, p=0.141
+adonis(asvAOB.S.BC~mapAOB.S$NO3) # R2=0.120, p=0.046
+adonis(asvAOB.S.BC~mapAOB.S$NH4) # R2=0.071, p=0.222
+
+#' Chemical analysis for MRC where 2mm soil particles are removed because no 
+#' chemistry was done for them
+asvAOB.M.BC.2mm <- vegdist(t(asvAOB.M[,-c(16,17,18)]), method="bray") # removing 2 mm samples
+mapAOB.M.2=mapAOB.M %>% filter(Size<2)
+adonis(asvAOB.M.BC.2mm~mapAOB.M.2$OM) # R2=0.087, p=0.146
+adonis(asvAOB.M.BC.2mm~mapAOB.M.2$N)  # R2=0.135, p=0.039
+adonis(asvAOB.M.BC.2mm~mapAOB.M.2$NO3)# R2=0.081, p=0.213
+adonis(asvAOB.M.BC.2mm~mapAOB.M.2$NH4)# R2=0.087, p=0.172
+
+
 
 #' Using phyloseq for the analysis
 
