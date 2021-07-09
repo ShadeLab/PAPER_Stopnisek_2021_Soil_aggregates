@@ -43,7 +43,8 @@ AOBqpcr %>%
 qpcr_index=IndexDF %>%
   group_by(Soil, Size) %>%
   summarise(meanSW=mean(meanSW),
-            meanSVW=mean(meanSVW))
+            meanSVW=mean(meanSVW)) %>%
+  mutate(Size=if_else(Size == 0.18, 0.16, Size))
 
 qpcrPlot_AOA=AOAqpcr %>%
   left_join(map_qpcr, by = c( 'Well' = 'well')) %>%
@@ -89,11 +90,12 @@ qpcrAbundanceFig=qcprDF %>%
   ggplot(aes(x=Target,y=conc_per_gram, fill=Soil)) +
   geom_boxplot() +
   scale_fill_manual(values = c("#009e73", "#0072b2")) + 
-  labs(x=NULL, y='amoA gene abundance per um2') +
+  labs(x=NULL, y=NULL) +
   facet_grid(~Size)+
   ylim(0, 5e05)+
   theme_classic() +
-  theme(legend.position = c(.2,.7))
+  theme(legend.position = c(.2,.7), 
+        axis.text.y = element_blank())
 
 
 qpcrRatioFig=qcprDF %>% 
@@ -111,8 +113,9 @@ qpcrRatioFig=qcprDF %>%
   facet_wrap(~Size, nrow = 1)+
   theme(legend.position = 'none',
         strip.background = element_blank(), 
-        strip.text.x = element_blank()) +
-  labs(x=NULL, y='AOA:AO gene abundance (log2)') 
+        strip.text.x = element_blank(),, 
+        axis.text.y = element_blank()) +
+  labs(x=NULL, y=NULL) 
 
 ggarrange(qpcrAbundanceFig,qpcrRatioFig, nrow = 2,
           heights = c(2,1))
