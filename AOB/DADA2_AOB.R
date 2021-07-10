@@ -199,14 +199,14 @@ RichnessAOB <- ggplot(mapAOB, aes(x=as.factor(Size),y=Richness, fill=Site)) +
   geom_boxplot() +
   scale_fill_manual(values = c("#009e73", "#0072b2")) + 
   scale_color_manual(values = c("#009e73", "#0072b2")) + 
-  labs(x='Size (mm)', y='Richness') +
+  labs(x='Size (mm)', y='Richness', title='AOB') +
   theme_classic()
 
 ShannonAOB <- ggplot(mapAOB, aes(x=as.factor(Size),y=Shannon, fill=Site)) +
   geom_boxplot()+
   scale_fill_manual(values = c("#009e73", "#0072b2")) + 
   scale_color_manual(values = c("#009e73", "#0072b2")) + 
-  labs(x='Size (mm)', y='Shannon') +
+  labs(x='Size (mm)', y='Shannon', title='AOB') +
   theme_classic()
 
 #' Alpha diversity statistics

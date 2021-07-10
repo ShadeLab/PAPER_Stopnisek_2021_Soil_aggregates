@@ -103,3 +103,41 @@ S_indeces=meanClaculations %>%
 
 IndexDF=rbind(M_indeces, S_indeces)
 write.table(IndexDF, 'Surface_volume_weight_indeces.txt', quote = F)
+
+weightFraction=read.delim(file = 'soil_sieving_weightFractions.txt')
+
+mrc_weight=weightFraction[weightFraction$Soil == 'MRC',]
+sverc_weight=weightFraction[weightFraction$Soil == 'SVERC',]
+
+
+m_weight_plot=
+  ggplot() +
+  geom_bar(data=mrc_weight, 
+           aes(x=Soil, y=relative_portion_size, fill=Fractions/2),
+           stat = 'identity', color='black') +
+  scale_fill_gradient(low = "white", high = "#009e73", 
+                      breaks=c(0.05/2,0.5/2,1/2,2/2),
+                      labels=c("<0.056um","0.5mm","1mm","2mm"),
+                      limits = c(0,1))+
+  theme_classic()+
+  labs(y='Relative weight contribution of\nsoil particle size fractions',
+       fill=NULL) +
+  theme(axis.text.x = element_blank(),
+        axis.title.x = element_blank(),
+        axis.ticks.x = element_blank())
+
+s_weight_plot= 
+  ggplot() + 
+  geom_bar(data=sverc_weight,
+           aes(x=Soil, y=relative_portion_size, fill=Fractions/2), 
+           stat = "identity", color='black') +
+  scale_fill_gradient(low = "white", high = "#0072b2", 
+                      breaks=c(0.05/2,0.5/2,1/2,2/2),
+                      labels=c("<0.056um","0.5mm","1mm" ,"2mm"),
+                      limits = c(0,1)) +
+  theme_classic() +
+  labs(y='Relative weight contribution of\nsoil particle size fractions') +
+  theme(axis.text.x = element_blank(),
+        axis.title.x = element_blank(),
+        axis.ticks.x = element_blank()) 
+ 

@@ -109,22 +109,21 @@ Richness <- ggplot(map_filtered, aes(x=as.factor(Size_fraction),y=Richness, fill
   geom_boxplot() +
   scale_fill_manual(values = c("#009e73", "#0072b2")) + 
   scale_color_manual(values = c("#009e73", "#0072b2")) + 
-  labs(x=NULL, y='Richness') +
-  #geom_signif(test="wilcox.test", comparisons = list(c("MRC", "SVERC")), map_signif_level = TRUE) +
-  #facet_grid(~Size_fraction, scales = 'free_x') +
+  labs(x=NULL, y=NULL) +
   theme_classic() +
   theme(legend.position = c(.2,.2),
-        axis.text.x = element_blank())
+        axis.text = element_blank())
 
 Shannon <- ggplot(map_filtered, aes(x=as.factor(Size_fraction),y=Shannon, fill=Site)) +
   geom_boxplot() +
   scale_fill_manual(values = c("#009e73", "#0072b2")) + 
   scale_color_manual(values = c("#009e73", "#0072b2")) + 
-  labs(x='Soil particle size (mm)', y='Shannon') +
+  labs(x='Soil particle size (mm)', y=NULL) +
   theme_classic() +
-  theme(legend.position = 'none')
+  theme(legend.position = 'none',
+        axis.text.y = element_blank())
 
-ggarrange(Richness, Shannon, labels = c("A", "B"), nrow = 2) %>%
+ggarrange(Richness, Shannon, nrow = 2) %>%
   ggexport(filename = "figures/alpha_div.pdf", width = 4, height = 5)
 
 library(rstatix)
@@ -466,9 +465,16 @@ CN <- ggplot(map_filtered, aes(x=as.factor(Size_fraction), y=OM/N, col=Site))+
   theme_classic() +
   theme(legend.position = 'none')
 
-ggarrange(NH4,NO3,CN, CN_correlation,
+OM <- ggplot(map_filtered, aes(x=as.factor(Size_fraction), y=OM, col=Site))+
+  geom_point(size=2.5) +
+  scale_color_manual(values = c("#009e73", "#0072b2")) + 
+  labs(x='Size (mm)', y= 'Organic matter (%)') +
+  theme_classic() +
+  theme(legend.position = 'none')
+
+ggarrange(NH4,NO3,OM,CN,
           labels = c("A", "B", "C", "D"), ncol = 2, nrow = 2) %>%
-  ggexport(filename = "soil_parameters.pdf", width = 4.5, height = 4)
+  ggexport(filename = "figures/soil_parameters.pdf", width = 5, height = 4)
 
 ###########################################################################
 #' Turnover analysis
@@ -551,19 +557,22 @@ total.all.melt <- melt(total.all)
 
 total.all.melt$variable <- factor(total.all.melt$variable, levels = levels(total.all.melt$variable)[c(3,2,1)])
 
-total.all.melt %>%
+turnoverFig=total.all.melt %>%
+  filter(!(variable == 'Sum of previously unobserved OTUs')) %>%
   ggplot(aes(x = Size, y = value, color = Site)) +
-  geom_point() +
-  geom_line(aes(group = Site), size = 1, alpha = .5) +
-  facet_wrap(~variable, scales = "free_y") +
+  geom_point(size=2) +
+  geom_line(aes(group = Site), size = 1) +
+  facet_wrap(~variable, scales = "free_y", nrow = 2) +
   scale_color_manual(values = c("#009e73", "#0072b2")) +
   theme_classic() +
-  theme(axis.title = element_blank(),
-        #        legend.position = c(.92,.6), # legend in the left panel
-        legend.position = c(.5,.62), # legend in the right panel
-        legend.title = element_blank()
+  labs(x='Soil') +
+  theme(axis.title.y.left = element_blank(),
+        legend.position = 'none',
+        #legend.position = c(.3,.6), # legend in the right panel
+        strip.background = element_blank(),
+        strip.text.x = element_blank()
         #, panel.spacing.x = unit(30, "pt") # add spacing between plots for equations
-) 
+        ) 
 
 ###############################
 #' Functional potential of the microbiome

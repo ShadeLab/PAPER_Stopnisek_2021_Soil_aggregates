@@ -163,14 +163,14 @@ RichnessAOA <- ggplot(mapAOA, aes(x=as.factor(Size),y=Richness, fill=Site)) +
   geom_boxplot() +
   scale_fill_manual(values = c("#009e73", "#0072b2")) + 
   scale_color_manual(values = c("#009e73", "#0072b2")) + 
-  labs(x='Size (mm)', y='Richness') +
+  labs(x='Size (mm)', y='Richness', title= "AOA") +
   theme_classic()
 
 ShannonAOA <- ggplot(mapAOA, aes(x=as.factor(Size),y=Shannon, fill=Site)) +
   geom_boxplot()+
   scale_fill_manual(values = c("#009e73", "#0072b2")) + 
   scale_color_manual(values = c("#009e73", "#0072b2")) + 
-  labs(x='Size (mm)', y='Shannon') +
+  labs(x='Size (mm)', y='Shannon', title= "AOA") +
   theme_classic()
 
 #' Alpha diversity statistics
