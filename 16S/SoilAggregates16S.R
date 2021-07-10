@@ -361,6 +361,26 @@ adonis(otu.M.BC.2mm~mapM.2$NO3)# R2=0.11737, p=0.007
 adonis(otu.M.BC.2mm~mapM.2$NH4)# R2=0.13254, p=0.002
 
 #################################
+#' Investigating which taxa are correlated with soil particles size
+matrix_abund=data.frame(t(rel.abun.all))
+cor.kendall = cor(matrix_abund, map_filtered$Size_fraction, method = "kendall")
+data.frame(asv=rownames(cor.kendall), cor_kendall=cor.kendall[,1]) %>%
+  select(asv, cor_kendall) %>%
+  filter(cor_kendall < -0.5)
+
+corASV = glm(matrix_abund$X698a6dec7e68092a0c5cb7e2612ed105 ~ map_filtered$Size_fraction)
+summary(corASV)
+
+plot(matrix_abund$X698a6dec7e68092a0c5cb7e2612ed105 ~ map_filtered$Size_fraction,
+     xlab="Size (mm)", ylab="Relative abundance", main="asv")
+
+data.frame(OTU=rownames(rel.abun.all), rel.abun.all) %>%
+  gather(sampleID, abun, -OTU) %>%
+  left_join(tax_filtered) %>%
+  left_join(map_filtered) %>%
+  group_by(OTU, Site, Size_fraction)
+
+#################################
 #' Investigating the dynamics in AOA and OAB communities based on the abundance 
 #' of genera known to contain ammonia oxidizing members
  
@@ -472,13 +492,28 @@ OM <- ggplot(map_filtered, aes(x=as.factor(Size_fraction), y=OM, col=Site))+
   theme_classic() +
   theme(legend.position = 'none')
 
+N <- ggplot(map_filtered, aes(x=as.factor(Size_fraction), y=N, col=Site))+
+  geom_point(size=2.5) +
+  scale_color_manual(values = c("#009e73", "#0072b2")) + 
+  labs(x='Size (mm)', y= 'Total N (%)') +
+  theme_classic() +
+  theme(legend.position = 'none')
+
+OM_N <- ggplot(map_filtered, aes(x=OM, y=N, col=Site, size=Size_fraction))+
+  geom_point() +
+  scale_color_manual(values = c("#009e73", "#0072b2")) + 
+  labs(x='Organic matter (%)', y= 'Total N (%)') +
+  theme_classic() +
+  theme(legend.position = 'none')
+
+
 ggarrange(NH4,NO3,OM,CN,
           labels = c("A", "B", "C", "D"), ncol = 2, nrow = 2) %>%
   ggexport(filename = "figures/soil_parameters.pdf", width = 5, height = 4)
 
 ###########################################################################
 #' Turnover analysis
-#' How many taxa appear at a timepoint that were not in any previous size 
+#' How many taxa appear in a size fraction that were not in any previous size 
 #' fraction? 
 
 OTUdf=otu_table(as.matrix(rel.abun.all), taxa_are_rows = T)

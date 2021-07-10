@@ -119,3 +119,5 @@ qpcrRatioFig=qcprDF %>%
 
 ggarrange(qpcrAbundanceFig,qpcrRatioFig, nrow = 2,
           heights = c(2,1))
+
+
