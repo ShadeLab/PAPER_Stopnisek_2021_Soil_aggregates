@@ -254,26 +254,28 @@ pcoa.BC.asvAOB.b <- ggplot(mapAOB, aes(x=Axis1.BC, y=Axis2.BC)) +
   theme_classic() +
   geom_point(aes(col=Site, size=Size))+
   scale_color_manual(values = c("#009e73", "#0072b2")) + 
-  theme(legend.position = c(.5,.5),
+  theme(#legend.position = c(.5,.5),
+        legend.position = 'none',
         legend.background = element_rect(fill="transparent"),
         legend.text = element_text(size=8),
         legend.title = element_text(size=10))+
   labs(x=paste('PCoA1 (',100*round(ax1.bc.asvAOB.b,3),'%)',sep=''),
        y=paste('PCoA2 (',100*round(ax2.bc.asvAOB.b,3),'%)', sep=''), 
-       alpha='Size (mm)', title='Bray-Curtis')
+       alpha='Size (mm)', title='Bray-Curtis - AOB')
 
-pcoa.J.asvAOB.b=ggplot(mapAOB, aes(x=Axis1.J, y=Axis2.J)) +
+pcoa.J.asvAOB.j=ggplot(mapAOB, aes(x=Axis1.J, y=Axis2.J)) +
   theme_classic() +
   geom_point(aes(col=Site, size=Size))+
   scale_color_manual(values = c("#009e73", "#0072b2")) + 
   #scale_alpha_continuous(range = c(0.1, 1)) + 
-  theme(legend.position = c(.5,.5),
+  theme(#legend.position = c(.5,.5),
+        legend.position='none',
         legend.background = element_rect(fill="transparent"),
         legend.text = element_text(size=8),
         legend.title = element_text(size=10))+
   labs(x=paste('PCoA1 (',100*round(ax1.j.asvAOB.b,3),'%)',sep=''),
        y=paste('PCoA2 (',100*round(ax2.j.asvAOB.b,3),'%)', sep=''), 
-       alpha='Size (mm)', title='Bray-Curtis')
+       alpha='Size (mm)', title='Jaccard - AOB')
 
 #' Beta diversity on separated dataset
 #' MRC
@@ -311,7 +313,7 @@ pcoa.J.asvAOB.M <- ggplot(mapAOB.M, aes(x=Axis1.J.M, y=Axis2.J.M, size=Size, col
   theme(legend.position ='none')+
   labs(x=paste('PCoA1 (',100*round(ax1.j.asvAOB.M,3),'%)',sep=''),
        y=paste('PCoA2 (',100*round(ax2.j.asvAOB.M,3),'%)', sep=''), 
-       alpha='Size (mm)', title='MRC_J')
+       alpha='Size (mm)', title='Jaccard - AOB')
 
 #' SVERC
 asvAOB.S=asvAOB.rare[,as.character(mapAOB$Site)=='S']
@@ -337,8 +339,9 @@ pcoa.BC.asvAOB.S <- ggplot(mapAOB.S, aes(x=Axis1.BC.S, y=Axis2.BC.S, size=Size, 
   geom_point()+
   scale_color_manual(values = c("#0072b2")) + 
   theme(legend.position ='none')+
-  labs(x=paste('PCoA1 (',100*round(ax1.bc.asvAOB.S,3),'%)',sep=''),y=paste('PCoA2 (',100*round(ax2.bc.asvAOB.S,3),'%)', sep=''), 
-       alpha='Size (mm)')
+  labs(x=paste('PCoA1 (',100*round(ax1.bc.asvAOB.S,3),'%)',sep=''),
+       y=paste('PCoA2 (',100*round(ax2.bc.asvAOB.S,3),'%)', sep=''), 
+       alpha='Size (mm)', title = 'Bray-Curtis - AOB')
 
 pcoa.J.asvAOB.S <- ggplot(mapAOB.S, aes(x=Axis1.J.S, y=Axis2.J.S, size=Size, col=Site)) +
   theme_classic() +
@@ -346,7 +349,7 @@ pcoa.J.asvAOB.S <- ggplot(mapAOB.S, aes(x=Axis1.J.S, y=Axis2.J.S, size=Size, col
   scale_color_manual(values = c("#0072b2")) + 
   theme(legend.position ='none')+
   labs(x=paste('PCoA1 (',100*round(ax1.j.asvAOB.S,3),'%)',sep=''),y=paste('PCoA2 (',100*round(ax2.j.asvAOB.S,3),'%)', sep=''), 
-       alpha='Size (mm)', title='SVERC')
+       alpha='Size (mm)', title='Jaccard - AOB')
 
 # Create a plot combining all PCoA graphs (AOA and AOB, Bray-Curtis)
 ggarrange(pcoa.BC.asvAOA.M,pcoa.BC.asvAOA.S, 

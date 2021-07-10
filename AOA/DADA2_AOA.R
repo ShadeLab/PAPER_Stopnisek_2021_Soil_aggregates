@@ -219,24 +219,25 @@ pcoa.BC.AOAasv.b <- ggplot(mapAOA, aes(x=Axis1.BC, y=Axis2.BC)) +
   geom_point(aes(col=Site, size=Size))+
   scale_color_manual(values = c("#009e73", "#0072b2")) + 
   #scale_alpha_continuous(range = c(0.1, 1)) + 
-  theme(legend.position = c(.5,.5),
+  theme(#legend.position = c(.5,.5),
+        legend.position = 'none',
         legend.background = element_rect(fill="transparent"),
         legend.text = element_text(size=8),
         legend.title = element_text(size=10))+
   labs(x=paste('PCoA1 (',100*round(AOAax1.bc.asv.b,3),'%)',sep=''),y=paste('PCoA2 (',100*round(AOAax2.bc.asv.b,3),'%)', sep=''), 
-       alpha='Size (mm)', title='Bray-Curtis')
+       alpha='Size (mm)', title='Bray-Curtis - AOA')
 
-pcoa.J.AOAasv.b=ggplot(mapAOA, aes(x=Axis1.J, y=Axis2.J)) +
+pcoa.J.AOAasv.j=ggplot(mapAOA, aes(x=Axis1.J, y=Axis2.J)) +
   theme_classic() +
   geom_point(aes(col=Site, size=Size))+
   scale_color_manual(values = c("#009e73", "#0072b2")) + 
-  #scale_alpha_continuous(range = c(0.1, 1)) + 
-  theme(legend.position = c(.5,.5),
+  theme(#legend.position = c(.5,.5),
+        legend.position = 'none',
         legend.background = element_rect(fill="transparent"),
         legend.text = element_text(size=8),
         legend.title = element_text(size=10))+
   labs(x=paste('PCoA1 (',100*round(AOAax1.j.asv.b,3),'%)',sep=''),y=paste('PCoA2 (',100*round(AOAax2.j.asv.b,3),'%)', sep=''), 
-       alpha='Size (mm)', title='Bray-Curtis')
+       alpha='Size (mm)', title='Jaccard - AOA')
 
 #' Beta diversity on separated dataset
 #' MRC
@@ -271,10 +272,11 @@ pcoa.J.asvAOA.M <- ggplot(mapAOA.M, aes(x=Axis1.J.M, y=Axis2.J.M, size=Size, col
   theme_classic() +
   geom_point()+
   scale_color_manual(values = c("#009e73")) + 
-  theme(legend.position =c(.4,.8))+
+  theme(#legend.position =c(.4,.8),
+        legend.position= 'none')+
   labs(x=paste('PCoA1 (',100*round(ax1.j.asvAOA.M,3),'%)',sep=''),
        y=paste('PCoA2 (',100*round(ax2.j.asvAOA.M,3),'%)', sep=''), 
-       alpha='Size (mm)')
+       alpha='Size (mm)', title='AOA - Jaccard')
 
 #' SVERC
 asvAOA.S=ASVaoa.rare[,as.character(mapAOA$Site)=='S']
@@ -300,18 +302,21 @@ pcoa.BC.asvAOA.S <- ggplot(mapAOA.S, aes(x=Axis1.BC.S, y=Axis2.BC.S, size=Size, 
   geom_point()+
   scale_color_manual(values = c("#0072b2")) + 
   theme(legend.position ='none')+
-  labs(x=paste('PCoA1 (',100*round(ax1.bc.asvAOA.S,3),'%)',sep=''),y=paste('PCoA2 (',100*round(ax2.bc.asvAOA.S,3),'%)', sep=''), 
+  labs(x=paste('PCoA1 (',100*round(ax1.bc.asvAOA.S,3),'%)',sep=''),
+       y=paste('PCoA2 (',100*round(ax2.bc.asvAOA.S,3),'%)', sep=''), 
        alpha='Size (mm)')
 
 pcoa.J.asvAOA.S <- ggplot(mapAOA.S, aes(x=Axis1.J.S, y=Axis2.J.S, size=Size, col=Site)) +
   theme_classic() +
   geom_point()+
   scale_color_manual(values = c("#0072b2")) + 
-  theme(legend.position =c(.4,.8))+
-  labs(x=paste('PCoA1 (',100*round(ax1.j.asvAOA.S,3),'%)',sep=''),y=paste('PCoA2 (',100*round(ax2.j.asvAOA.S,3),'%)', sep=''), 
-       alpha='Size (mm)', title='SVERC')
+  theme(#legend.position =c(.4,.8),
+        legend.position='none') +
+  labs(x=paste('PCoA1 (',100*round(ax1.j.asvAOA.S,3),'%)',sep=''),
+       y=paste('PCoA2 (',100*round(ax2.j.asvAOA.S,3),'%)', sep=''), 
+       alpha='Size (mm)', title='Jaccard - AOA')
 
-#' Testing the effect of size, site and chemical parameters on the community 
+.#' Testing the effect of size, site and chemical parameters on the community 
 #' using PERMANOVA
 #' Factors: Site, Size, OM, NO3, NH4, N
 set.seed(002)

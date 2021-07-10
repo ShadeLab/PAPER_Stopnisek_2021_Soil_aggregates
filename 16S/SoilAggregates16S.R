@@ -233,7 +233,7 @@ pcoa.BC <- ggplot(map_filtered, aes(x=Axis1.BC, y=Axis2.BC)) +
         legend.text = element_text(size=8),
         legend.title = element_text(size=10))+
   labs(x=paste('PCoA1 (',100*round(ax1.bc.otu,3),'%)',sep=''),y=paste('PCoA2 (',100*round(ax2.bc.otu,3),'%)', sep=''), 
-       alpha='Size (mm)', title='Bray-Curtis')
+       alpha='Size (mm)', title='Bray-Curtis - 16S')
 
 pcoa.J <- ggplot(map_filtered, aes(x=Axis1.J, y=Axis2.J)) +
   theme_classic() +
@@ -245,7 +245,7 @@ pcoa.J <- ggplot(map_filtered, aes(x=Axis1.J, y=Axis2.J)) +
         legend.text = element_text(size=8),
         legend.title = element_text(size=10))+
   labs(x=paste('PCoA1 (',100*round(ax1.j.otu,3),'%)',sep=''),y=paste('PCoA2 (',100*round(ax2.j.otu,3),'%)', sep=''), 
-       alpha='Size (mm)', title="Jaccard")
+       alpha='Size (mm)', title="Jaccard - 16S")
 
 ggarrange(pcoa.BC, pcoa.J, 
                     labels = c("A", "B"), ncol = 2) %>%
@@ -287,7 +287,7 @@ pcoa.J.S <- ggplot(mapS, aes(x=Axis1.J.S, y=Axis2.J.S)) +
   #scale_alpha_continuous(range = c(0.1, 1)) + 
   theme(legend.position = 'none')+
   labs(x=paste('PCoA1 (',100*round(ax1.j.otu.S,3),'%)',sep=''),y=paste('PCoA2 (',100*round(ax2.j.otu.S,3),'%)', sep=''), 
-       alpha='Size (mm)', title="Jaccard")
+       alpha='Size (mm)', title="Jaccard - 16S")
 
 #' MRC
 otu.M=otu_filtered_complete[,as.character(map_filtered$Site)!='SVERC']
@@ -324,7 +324,7 @@ pcoa.J.M <- ggplot(mapM, aes(x=Axis1.J.M, y=Axis2.J.M)) +
   #scale_alpha_continuous(range = c(0.1, 1)) + 
   theme(legend.position = 'none')+
   labs(x=paste('PCoA1 (',100*round(ax1.j.otu.M,3),'%)',sep=''),y=paste('PCoA2 (',100*round(ax2.j.otu.M,3),'%)', sep=''), 
-       alpha='Size (mm)', title="Jaccard")
+       alpha='Size (mm)', title="Jaccard - 16S")
 
 ggarrange(pcoa.BC.M,pcoa.BC.S ,#pcoa.J.M, pcoa.J.S,
           labels = c("A", "B"), 
