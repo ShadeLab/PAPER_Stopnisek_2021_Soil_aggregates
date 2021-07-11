@@ -11,7 +11,7 @@ IndexDF=read.table('Surface_volume_weight_indeces.txt')
 head(AOAqpcr)
 head(map_qpcr)
 
-AOAqpcr %>%
+qpcrAOA_fig=AOAqpcr %>%
   left_join(map_qpcr, by = c( 'Well' = 'well')) %>%
   filter(sample_type =='sample') %>%
   mutate(conc_per_gram=Starting.Quantity..SQ./.75) %>% #0.75g of dry soil was used to isolate DNA
@@ -19,11 +19,12 @@ AOAqpcr %>%
   geom_boxplot() +
   scale_fill_manual(values = c("#009e73", "#0072b2")) + 
   scale_color_manual(values = c("#009e73", "#0072b2")) + 
-  labs(x='Soil particle size (mm)', y='AOA amoA gene abundance') +
+  labs(x='Soil particle size (mm)', 
+       y='AOA amoA gene abundance\n(gene copy/g dry soil)') +
   theme_classic() +
   theme(legend.position = c(.2,.8))
 
-AOBqpcr %>%
+qpcrAOB_fig=AOBqpcr %>%
   left_join(map_qpcr, by = c( 'Well' = 'well')) %>%
   filter(sample_type =='sample') %>%
   mutate(conc_per_gram=Starting.Quantity..SQ./.75) %>% #0.75g of dry soil was used to isolate DNA
@@ -31,10 +32,13 @@ AOBqpcr %>%
   geom_boxplot() +
   scale_fill_manual(values = c("#009e73", "#0072b2")) + 
   scale_color_manual(values = c("#009e73", "#0072b2")) + 
-  labs(x='Soil particle size (mm)', y='AOB amoA gene abundance') +
+  labs(x='Soil particle size (mm)', 
+       y='AOB amoA gene abundance\n(gene copy/g dry soil)') +
   theme_classic() +
   theme(legend.position = 'none')
 
+ggarrange(qpcrAOA_fig, qpcrAOB_fig,
+          labels = c("A", "B"))
 
 #' next we will normalize the gene abundance by particle surface and 
 #' surface/volume. We need first to calculate mean of the values per soil and 
