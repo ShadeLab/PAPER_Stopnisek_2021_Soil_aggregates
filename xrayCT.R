@@ -20,6 +20,7 @@ weight_short=weight %>%
 surface_volume_weight=surfaceArea %>%
   left_join(weight_short, by='id_new')
 
+#' Using surface area and volume ratio
 surfaceAreaPlot=surface_volume_weight %>%
   mutate(id.v2=paste(Site, Size, sep='_')) %>%
   ggplot(aes(x=Size, y=SA.Vol_um.1, color= Site)) +
@@ -31,7 +32,7 @@ surfaceAreaPlot=surface_volume_weight %>%
   labs(y='area/volume (um-1)')
 head(surface_volume_weight)
 
-#Controlling for the soil weight
+#' Same as before but controlling for the soil weight used in scanning
 surfaceAreaPlot2=surface_volume_weight %>%
   mutate(id.v2=paste(Site, Size, sep='_'),
          AreaVolumeWeight=SA.Vol_um.1/weight) %>%
@@ -46,7 +47,23 @@ surfaceAreaPlot2=surface_volume_weight %>%
   theme(legend.position = 'none') +
   labs(y='area/volume/weight ((um x mg)-1)')
 
-#' Area Vs weight
+# ANOVA
+area.vol.DF=surface_volume_weight %>%
+  mutate(AreaVolumeWeight=SA.Vol_um.1/weight)
+
+area.vol.aov <- aov(AreaVolumeWeight ~ Site, data = area.vol.DF)
+# Summary of the analysis
+summary(area.vol.aov)
+
+# t-test for size comparison
+stat.test.area.vol <- area.vol.DF %>%
+  group_by(Size) %>%
+  t_test(AreaVolumeWeight ~ Site) %>%
+  adjust_pvalue(method = "BH") %>%
+  add_significance()
+stat.test.area.vol
+
+#' Area Vs weight of used soil
 surfaceAreaPlot3=surface_volume_weight %>%
   mutate(id.v2=paste(Site, Size, sep='_'),
          AreaWeight=SA_um/(weight*1000)) %>%
@@ -60,7 +77,24 @@ surfaceAreaPlot3=surface_volume_weight %>%
   theme(legend.position = 'none') +
   labs(y='area/weight (um2 per g soil)', x='Soil particle size (mm)')
 
-#' Volume Vs weight
+# ANOVA
+area.DF=surface_volume_weight %>%
+  mutate(AreaWeight=SA_um/(weight*1000))
+
+area.aov <- aov(AreaWeight ~ Site, data = area.DF)
+# Summary of the analysis
+summary(area.aov)
+
+# t-test for size comparison
+stat.test.area <- area.DF %>%
+  group_by(Size) %>%
+  t_test(AreaWeight ~ Site) %>%
+  adjust_pvalue(method = "BH") %>%
+  add_significance()
+stat.test.area
+
+
+#' Volume Vs weight of used soil
 surfaceAreaPlot4=surface_volume_weight %>%
   mutate(id.v2=paste(Site, Size, sep='_'),
          VolWeight=Vol_um/weight) %>%
@@ -141,3 +175,29 @@ s_weight_plot=
         axis.title.x = element_blank(),
         axis.ticks.x = element_blank()) 
  
+#' What would be the total surface are if considering the measured weight 
+#' fractions?
+
+#' Mean surface area values
+surface_volume_weight %>%
+  mutate(area.weight=SA_um/(weight*1000)) %>%
+  group_by(Soil, Size) %>%
+  summarise(mean.area.weight=mean(area.weight)) %>%
+  mutate(Fractions = Size) %>%
+  left_join(weightFraction) %>%
+  select(-X, -X.1) %>%
+  mutate(SizeByArea= mean.area.weight*relative_portion_size) %>%
+  group_by(Soil) %>%
+  summarise(sumArea=sum(SizeByArea))
+
+surface_volume_weight %>%
+  mutate(area.weight=SA_um/(weight*1000)) %>%
+  group_by(Soil, Size) %>%
+  summarise(mean.area.weight=mean(area.weight)) %>%
+  mutate(Fractions = Size) %>%
+  left_join(weightFraction) %>%
+  select(-X, -X.1) %>%
+  mutate(SizeByArea= mean.area.weight*relative_portion_size) %>%
+  filter(Soil == 'SVERC',
+         Fractions>.4) %>%
+  summarise(sumArea=sum(SizeByArea))
