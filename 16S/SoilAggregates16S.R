@@ -93,10 +93,11 @@ colnames(otu_filtered_complete) == rownames(map_filtered)
 # Rarefying data to 40000 reads per sample since the minimum is 42629 reads
 set.seed(077)
 OTU.rare <- t(rrarefy(t(otu_filtered_complete), 40000)) 
-rel.abun.all <- decostand(OTU.rare, method = 'total', MARGIN = 2)
+OTU.rare.noZero=OTU.rare[rowSums(OTU.rare)>0,]
+rel.abun.all <- decostand(OTU.rare.noZero, method = 'total', MARGIN = 2)
 
 #' Alpha diversity measurements
-#' 
+
 s <- specnumber(OTU.rare,MARGIN=2)
 h <- vegan::diversity(t(OTU.rare), "shannon")
 pielou=h/log(s)
@@ -130,6 +131,23 @@ library(rstatix)
 library(ggpubr)
 
 #' Alpha div statistics
+summary(map_filtered)
+#' ANOVA
+alpha.site.aov <- aov(Richness ~ Site, #replace Richness with Shannon
+                      data = map_filtered) 
+alpha.size.aov <- aov(Richness ~ Size_fraction , #replace Richness with Shannon
+                      data = map_filtered) 
+alpha.size.M.aov <- aov(Richness ~ Size_fraction ,  #replace Richness with Shannon
+                        data = map_filtered[map_filtered$Site == 'MRC',])
+alpha.size.S.aov <- aov(Richness ~ Size_fraction , #replace Richness with Shannon
+                        data = map_filtered[map_filtered$Site == 'SVERC',])
+
+# Summary of the analysis
+summary(alpha.site.aov)
+summary(alpha.size.aov)
+summary(alpha.size.M.aov)
+summary(alpha.size.S.aov) 
+
 #' Are MRF and SVERC samples at different soil particle sizes different?
 stat.test.rich <- map_filtered %>%
   group_by(Size_fraction) %>%
@@ -169,7 +187,7 @@ stat.test.shan.size
 library(btools)
 OTU.rare #rarefied OTU data subset  
 
-#' First create a combined dataset in phyoseq object to filter only rhizosphere 
+#' First create a combined dataset in phyloseq object to filter only rhizosphere 
 #' samples. I find it the easiest to use phyloseq for this task as it will 
 #' remove samples and taxa from all datasets at once (taxonomy, tree, ASV table) 
 tax_df=tax_filtered[tax_filtered$OTU %in% rownames(OTU.rare),]
@@ -195,10 +213,24 @@ PD %>%
   scale_color_manual(values = c("#009e73", "#0072b2")) +
   labs(x=NULL) 
 
+PD.16s.df=PD %>%
+  left_join(mapPD, by=c('sample_ID' = 'sampleID'))
+
+#' ANOVA
+PD.site.aov <- aov(PD ~ Site, data = PD.16s.df)
+PD.size.aov <- aov(PD ~ Size_fraction , data = PD.16s.df)
+PD.size.M.aov <- aov(PD ~ Size_fraction , data = PD.16s.df[PD.16s.df$Site == 'MRC',])
+PD.size.S.aov <- aov(PD ~ Size_fraction , data = PD.16s.df[PD.16s.df$Site == 'SVERC',])
+
+# Summary of the analysis
+summary(PD.site.aov)
+summary(PD.size.aov)
+summary(PD.size.M.aov)
+summary(PD.size.S.aov)
+
 #' Does phylogenetic signal/depth differ between soils and different soil 
 #' particle sizes?
-stat.test.pd <- PD %>%
-  left_join(mapPD, by=c('sample_ID' = 'sampleID')) %>%
+stat.test.pd <- PD.16s.df %>%
   group_by(Size_fraction) %>%
   t_test(PD ~ Site) %>%
   adjust_pvalue(method = "BH") %>%
@@ -359,6 +391,58 @@ adonis(otu.M.BC.2mm~mapM.2$OM) # R2=0.11773, p=0.008
 adonis(otu.M.BC.2mm~mapM.2$N)  # R2=0.13145, p=0.005
 adonis(otu.M.BC.2mm~mapM.2$NO3)# R2=0.11737, p=0.007
 adonis(otu.M.BC.2mm~mapM.2$NH4)# R2=0.13254, p=0.002
+
+
+#############################
+#' Calculating beta dispersal
+
+#'MRC 
+## Calculate multivariate dispersions
+mod.M <- betadisper(otu.M.BC, mapM$Size_fraction)
+mod.M
+
+## Perform test
+anova(mod.M)
+
+## Permutation test for F
+permutest(mod.M, pairwise = TRUE, permutations = 99)
+
+## Tukey's Honest Significant Differences
+(mod.M.HSD <- TukeyHSD(mod.M))
+plot(mod.M.HSD)
+
+## Plot the groups and distances to centroids on the
+## first two PCoA axes
+## with data ellipses instead of hulls
+plot(mod.M, ellipse = TRUE, hull = FALSE, seg.lty = "dashed") # 1 sd data ellipse
+
+## Draw a boxplot of the distances to centroid for each group
+boxplot(mod.M)
+
+
+#' SVERC 
+## Calculate multivariate dispersions
+mod.S <- betadisper(otu.S.BC, mapS$Size_fraction)
+mod.S
+
+## Perform test
+anova(mod.S)
+
+## Permutation test for F
+permutest(mod.S, pairwise = TRUE, permutations = 99)
+
+## Tukey's Honest Significant Differences
+(mod.S.HSD <- TukeyHSD(mod.S))
+plot(mod.S.HSD)
+
+## Plot the groups and distances to centroids on the
+## first two PCoA axes
+## with data ellipses instead of hulls
+plot(mod.S, ellipse = TRUE, hull = FALSE, seg.lty = "dashed") # 1 sd data ellipse
+
+## Draw a boxplot of the distances to centroid for each group
+boxplot(mod.S)
+
 
 #################################
 #' Investigating which taxa are correlated with soil particles size
@@ -602,8 +686,8 @@ turnoverFig=total.all.melt %>%
   theme_classic() +
   labs(x='Soil') +
   theme(axis.title.y.left = element_blank(),
-        legend.position = 'none',
-        #legend.position = c(.3,.6), # legend in the right panel
+        #legend.position = 'none',
+        legend.position = c(.3,.6), # legend in the right panel
         strip.background = element_blank(),
         strip.text.x = element_blank()
         #, panel.spacing.x = unit(30, "pt") # add spacing between plots for equations
