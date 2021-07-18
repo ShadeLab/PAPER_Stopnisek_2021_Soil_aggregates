@@ -139,7 +139,7 @@ set.seed(335)
 
 ASVaoa.rare <- t(rrarefy(t(AOAtable), 25000)) #M1_a and S_5_c not enough reads
 ASVaoa.rare <- ASVaoa.rare[,colSums(ASVaoa.rare)>24999]
-
+length(rownames(ASVaoa.rare))
 mapAOA=read.table('~/Documents/git/SoilAggregates/AOB/map_AOB.txt', sep='\t', header=T, row.names=1)
 rownames(mapAOA) <- sapply(strsplit(rownames(mapAOA), "_AOB"), `[`, 1)
 mapAOA <- mapAOA[rownames(mapAOA)%in%colnames(ASVaoa.rare),]
@@ -174,7 +174,30 @@ ShannonAOA <- ggplot(mapAOA, aes(x=as.factor(Size),y=Shannon, fill=Site)) +
   theme_classic()
 
 #' Alpha diversity statistics
-#' Is richness and Shannon  index different at same soil size when comparing 
+mapAOA %>%
+  group_by(Site, Size) %>%
+  summarise(minRich=min(Richness),
+            maxRich=max(Richness),
+            minShan=min(Shannon),
+            maxShan=max(Shannon))
+#' ANOVA
+alpha.site.aoa.aov <- aov(Shannon ~ Site, #replace Richness with Shannon
+                      data = mapAOA) 
+alpha.size.aoa.aov <- aov(mapAOA$Shannon ~ Size , #replace Richness with Shannon
+                      data = mapAOA) 
+alpha.size.M.aoa.aov <- aov(Shannon ~ Size ,  #replace Richness with Shannon
+                        data = mapAOA[mapAOA$Site == 'M',])
+alpha.size.S.aoa.aov <- aov(Shannon ~ Size , #replace Richness with Shannon
+                        data = mapAOA[mapAOA$Site == 'S',])
+
+# Summary of the analysis
+summary(alpha.site.aoa.aov)
+summary(alpha.size.aoa.aov)
+summary(alpha.size.M.aoa.aov)
+summary(alpha.size.S.aoa.aov)
+
+#' 
+#' Are richness and Shannon index different at same soil size when comparing 
 #' two soils?
 stat.test.rich.aoa <- mapAOA %>%
   group_by(Size) %>%
@@ -342,15 +365,99 @@ adonis(asvAOA.M.BC.2mm~mapAOA.M.2$N)  # R2=0.263, p=0.031
 adonis(asvAOA.M.BC.2mm~mapAOA.M.2$NO3)# R2=0.079, p=0.248
 adonis(asvAOA.M.BC.2mm~mapAOA.M.2$NH4)# R2=0.074, p=0.272
 
+#############################
+#' Calculating beta dispersal
 
-TREE = read_tree("~/Documents/git/SoilAggregates/AOA/AOA_amino.tre")
-AOAphyloseq=phyloseq(otu_table(as.matrix(AOAtable), taxa_are_rows = T), sample_data(mapAOA), TREE)
-AOAphyloseq_norm=phyloseq_transform_css(AOAphyloseq)
+#'MRC 
+## Calculate multivariate dispersions
+mod.M.aoa <- betadisper(asvAOA.M.BC, mapAOA.M$Size)
+mod.M.aoa
 
-plot_tree(AOAphyloseq_norm, ladderize="left", nodelabf=nodeplotboot(), color="Site", size="Size") 
+## Perform test
+anova(mod.M.aoa)
 
-AOA.taxa.cor <- taxa.env.correlation(AOAphyloseq, grouping_column="Site", method="pearson", pvalue.threshold=0.05,
-                                     padjust.method="BH", adjustment=5, num.taxa=195, select.variables=NULL)
-p <- plot_taxa_env(AOA.taxa.cor)
-print(p)
+## Permutation test for F
+permutest(mod.M.aoa, pairwise = TRUE, permutations = 99)
+
+#' Tukey's Honest Significant Differences
+(mod.M.aoa.HSD <- TukeyHSD(mod.M.aoa))
+plot(mod.M.aoa.HSD)
+
+#' Plot the groups and distances to centroids on the
+## first two PCoA axes with data ellipses instead of hulls
+plot(mod.M.aoa, ellipse = TRUE, hull = FALSE, seg.lty = "dashed") # 1 sd data ellipse
+
+#' Draw a boxplot of the distances to centroid for each group
+boxplot(mod.M.aoa)
+
+#' SVERC 
+## Calculate multivariate dispersions
+mod.S.aoa <- betadisper(asvAOA.S.BC, mapAOA.S$Size)
+mod.S.aoa
+
+#' Perform test
+anova(mod.S.aoa)
+
+#' Permutation test for F
+permutest(mod.S.aoa, pairwise = TRUE, permutations = 99)
+
+#' Tukey's Honest Significant Differences
+(mod.S.aoa.HSD <- TukeyHSD(mod.S.aoa))
+plot(mod.S.aoa.HSD)
+
+#' Plot the groups and distances to centroids on the
+#' first two PCoA axes with data ellipses instead of hulls
+plot(mod.S.aoa, ellipse = TRUE, hull = FALSE, seg.lty = "dashed") # 1 sd data ellipse
+
+#' Draw a boxplot of the distances to centroid for each group
+boxplot(mod.S.aoa)
+
+
+#######################################################
+#' Calculating the phylogenetic diversity (Faith's diversity index (PD))
+library(btools)
+
+TREEaoa = read_tree("AOA/AOA_amino.tre")
+AOAp=phyloseq(otu_table(as.matrix(ASVaoa.rare), taxa_are_rows = T), sample_data(mapAOA), TREEaoa)
+
+PD.aoa <- estimate_pd(AOAp) %>%
+  rownames_to_column('sample_ID')
+
+mapPD.aoa=mapAOA
+mapPD.aoa$sample_ID=rownames(mapPD.aoa)
+
+PD.aoa %>%
+  left_join(mapPD.aoa) %>%
+  ggplot(aes(x=factor(Size), y=PD, color=Site)) +
+  geom_boxplot() +
+  theme_classic()+
+  scale_color_manual(values = c("#009e73", "#0072b2")) +
+  labs(x=NULL) 
+
+PD.aoa.df=PD.aoa %>%
+  left_join(mapPD.aoa)
+
+#' ANOVA
+PD.aoa.site.aov <- aov(PD ~ Site, data = PD.aoa.df) 
+PD.aoa.size.aov <- aov(PD ~ Size , data = PD.aoa.df)
+PD.aoa.size.M.aov <- aov(PD ~ Size , data = PD.aoa.df[PD.aoa.df$Site == 'M',])
+PD.aoa.size.S.aov <- aov(PD ~ Size, data = PD.aoa.df[PD.aoa.df$Site == 'S',])
+
+# Summary of the analysis
+summary(PD.aoa.site.aov)
+summary(PD.aoa.size.aov)
+summary(PD.aoa.size.M.aov)
+summary(PD.aoa.size.S.aov)
+#' Significant difference between sites but nothing else
+
+#' Does phylogenetic signal/depth differ between soils and different soil 
+#' particle sizes?
+stat.test.pd.aoa <- PD.aoa.df %>%
+  group_by(Size) %>%
+  t_test(PD ~ Site) %>%
+  adjust_pvalue(method = "BH") %>%
+  add_significance()
+stat.test.pd.aoa  
+# Difference between the MRC and SVERC only at 0.25 mm
+
 

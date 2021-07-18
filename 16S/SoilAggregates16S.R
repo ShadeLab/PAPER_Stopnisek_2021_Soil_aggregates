@@ -20,7 +20,7 @@ install.packages('devtools')
 devtools::install_github('twbattaglia/btools')
 library(btools)
 
-setwd('~/Documents/git/SoilAggregates/16S/')
+setwd('~/Documents/git/SoilAggregates/')
 
 #' Using data generated in Oct 2020
 #' OTU tables created using QIIME2, R1 only.
@@ -135,7 +135,7 @@ summary(map_filtered)
 #' ANOVA
 alpha.site.aov <- aov(Richness ~ Site, #replace Richness with Shannon
                       data = map_filtered) 
-alpha.size.aov <- aov(Richness ~ Size_fraction , #replace Richness with Shannon
+alpha.size.aov <- aov(Shannon ~ Size_fraction , #replace Richness with Shannon
                       data = map_filtered) 
 alpha.size.M.aov <- aov(Richness ~ Size_fraction ,  #replace Richness with Shannon
                         data = map_filtered[map_filtered$Site == 'MRC',])
@@ -187,9 +187,6 @@ stat.test.shan.size
 library(btools)
 OTU.rare #rarefied OTU data subset  
 
-#' First create a combined dataset in phyloseq object to filter only rhizosphere 
-#' samples. I find it the easiest to use phyloseq for this task as it will 
-#' remove samples and taxa from all datasets at once (taxonomy, tree, ASV table) 
 tax_df=tax_filtered[tax_filtered$OTU %in% rownames(OTU.rare),]
 rownames(tax_df)=tax_df$OTU
 tax_df$OTU=NULL
@@ -407,40 +404,37 @@ anova(mod.M)
 ## Permutation test for F
 permutest(mod.M, pairwise = TRUE, permutations = 99)
 
-## Tukey's Honest Significant Differences
+#' Tukey's Honest Significant Differences
 (mod.M.HSD <- TukeyHSD(mod.M))
 plot(mod.M.HSD)
 
-## Plot the groups and distances to centroids on the
-## first two PCoA axes
-## with data ellipses instead of hulls
+#' Plot the groups and distances to centroids on the
+## first two PCoA axes with data ellipses instead of hulls
 plot(mod.M, ellipse = TRUE, hull = FALSE, seg.lty = "dashed") # 1 sd data ellipse
 
-## Draw a boxplot of the distances to centroid for each group
+#' Draw a boxplot of the distances to centroid for each group
 boxplot(mod.M)
-
 
 #' SVERC 
 ## Calculate multivariate dispersions
 mod.S <- betadisper(otu.S.BC, mapS$Size_fraction)
 mod.S
 
-## Perform test
+#' Perform test
 anova(mod.S)
 
-## Permutation test for F
+#' Permutation test for F
 permutest(mod.S, pairwise = TRUE, permutations = 99)
 
-## Tukey's Honest Significant Differences
+#' Tukey's Honest Significant Differences
 (mod.S.HSD <- TukeyHSD(mod.S))
 plot(mod.S.HSD)
 
-## Plot the groups and distances to centroids on the
-## first two PCoA axes
-## with data ellipses instead of hulls
+#' Plot the groups and distances to centroids on the
+#' first two PCoA axes with data ellipses instead of hulls
 plot(mod.S, ellipse = TRUE, hull = FALSE, seg.lty = "dashed") # 1 sd data ellipse
 
-## Draw a boxplot of the distances to centroid for each group
+#' Draw a boxplot of the distances to centroid for each group
 boxplot(mod.S)
 
 
