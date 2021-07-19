@@ -460,4 +460,36 @@ stat.test.pd.aoa <- PD.aoa.df %>%
 stat.test.pd.aoa  
 # Difference between the MRC and SVERC only at 0.25 mm
 
+#######################################
+#' Distribution of ASVs by site and size
+
+pheatmap(ASVaoa.rare, 
+         color=colorRampPalette(brewer.pal(n = 9,name="Oranges"))(10),
+         cutree_cols = 2)
+
+#' filter low abundant and low prevalent ASVs (3 or more samples)
+ASVaoa.rare_nonZero=ASVaoa.rare[rowSums(ASVaoa.rare)>0,]
+ASVaoa.rare_nonZero=ASVaoa.rare_nonZero[rowSums(ASVaoa.rare_nonZero)>1000,]
+
+ASVaoa_PA <- 1*((ASVaoa.rare_nonZero>0)==1)
+ASVaoa_prevalent=ASVaoa.rare[rowSums(ASVaoa.rare)>5,]
+
+
+ASVaoa.abundant=ASVaoa.rare_nonZero[rowSums(ASVaoa.rare_nonZero)>3000,]
+
+pheatmap(ASVaoa.abundant[rownames(ASVaoa.abundant) %in% rownames(ASVaoa_prevalent),], 
+         color=colorRampPalette(brewer.pal(n = 11,name="Oranges"))(8),
+         cutree_cols = 3)
+
+
+#' Investigating if any AOA correlated with soil particles size
+AOAabun <- decostand(ASVaoa.rare, method = 'total', MARGIN = 2)
+
+aoa_mtx=data.frame(t(AOAabun))
+aoa.cor.pearson = cor(aoa_mtx, mapAOA$Size, method = "pearson")
+data.frame(asv=rownames(aoa.cor.pearson), pearson=aoa.cor.pearson[,1]) %>%
+  select(asv, pearson) %>%
+  filter(pearson < -0.5)
+
+
 

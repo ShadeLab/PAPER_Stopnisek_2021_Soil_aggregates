@@ -504,5 +504,31 @@ stat.test.pd.aob <- PD.aob.df %>%
 stat.test.pd.aob  
 # Difference between the MRC and SVERC only at 0.25 mm
 
+#######################################
+#' Distribution of ASVs by site and size
 
+pheatmap(asvAOB.rare, 
+         color=colorRampPalette(brewer.pal(n = 11,name="Oranges"))(100),
+         cutree_cols = 2)
 
+#' filter low abundant and low prevalent ASVs (3 or more samples)
+asvAOB.rare.filt=asvAOB.rare[rowSums(asvAOB.rare)>2000,]
+
+pheatmap(asvAOB.rare.filt, 
+         color=colorRampPalette(brewer.pal(n = 11,name="Oranges"))(8),
+         cutree_cols = 2)
+
+###########################################
+#' Investigating if any AOB correlated with soil particles size
+aob_mtx=data.frame(t(AOBabun))
+aob.cor.pearson = cor(aob_mtx, mapAOB$Size, method = "pearson")
+data.frame(asv=rownames(aob.cor.pearson), pearson=aob.cor.pearson[,1]) %>%
+  select(asv, pearson) %>%
+  filter(pearson > 0.5)
+#AA.ASV116 has pearson correlation of 0.59
+
+cor.aobASV116 = glm(aob_mtx$AA.ASV116 ~ mapAOB$Size)
+summary(cor.aobASV116)
+
+plot(aob_mtx$AA.ASV116 ~ mapAOB$Size,
+     xlab="Size (mm)", ylab="Relative abundance", main="AA.ASV116")
