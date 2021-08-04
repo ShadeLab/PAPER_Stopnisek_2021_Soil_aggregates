@@ -38,7 +38,7 @@ surfaceAreaPlot2=surface_volume_weight %>%
          AreaVolumeWeight=SA.Vol_um.1/weight) %>%
   ggplot(aes(x=Size, y=AreaVolumeWeight, color= Site)) +
   scale_color_manual(values = c("#009e73", "#0072b2")) + 
-  geom_smooth(method="glm", method.args=list(family=gaussian(link="log")), color='grey', se=F)+
+  geom_smooth(method="glm", method.args=list(family=gaussian(link="log")), color='grey', se=T)+
   geom_point(size=3, alpha=.7) +
   stat_summary(fun.data=median_hilow, fun.args=list(conf.int=.5),
                geom='pointrange')+
@@ -76,6 +76,49 @@ surfaceAreaPlot3=surface_volume_weight %>%
   facet_wrap(~Soil) +
   theme(legend.position = 'none') +
   labs(y='area/weight (um2 per g soil)', x='Soil particle size (mm)')
+
+surface_volume_weight %>%
+  mutate(id.v2=paste(Site, Size, sep='_'),
+         AreaWeight=SA_um/(weight*1000)) %>%
+  filter(Site == 'M') %>%
+  ggplot(aes(x=Size, y=AreaWeight)) +
+  geom_point(size=3, alpha=.7, col="#009e73") +
+  stat_summary(fun.data=median_hilow, fun.args=list(conf.int=.5),
+               geom='pointrange', color='grey')+
+  geom_smooth(method="lm", formula= (y ~ exp(-x/0.33)), se=T, color='grey')+
+  theme_classic() +
+  theme(legend.position = 'none') +
+  labs(y='area/weight (um2 per g soil)', x='Soil particle size (mm)')
+
+
+df.test.S=surface_volume_weight %>%
+  mutate(id.v2=paste(Site, Size, sep='_'),
+         AreaWeight=SA_um/(weight*1000)) %>%
+  filter(Site == 'S') %>%
+  arrange(Size)
+
+df.test.M=surface_volume_weight %>%
+  mutate(id.v2=paste(Site, Size, sep='_'),
+         AreaWeight=SA_um/(weight*1000)) %>%
+  filter(Site == 'M') %>%
+  arrange(Size)
+
+#' Below code was developed by Susan Johnston 
+#' (https://sejohnston.com/2012/08/09/a-quick-and-easy-function-to-plot-lm-results-in-r/)
+ggplotRegression <- function (fit) {
+  require(ggplot2)
+  ggplot(fit$model, aes_string(x = names(fit$model)[2], y = names(fit$model)[1])) + 
+    geom_point() +
+    stat_smooth(method = "lm", col = "red") +
+    labs(title = paste("Adj R2 = ",signif(summary(fit)$adj.r.squared, 5),
+                       "Intercept =",signif(fit$coef[[1]],5 ),
+                       " Slope =",signif(fit$coef[[2]], 5),
+                       " P =",signif(summary(fit)$coef[2,4], 5)))
+}
+
+ggplotRegression(lm(log(df.test.M$AreaWeight) ~ df.test.M$Size, data = df.test.M))
+ggplotRegression(lm(log(df.test.S$AreaWeight) ~ df.test.S$Size, data = df.test.S))
+
 
 # ANOVA
 area.DF=surface_volume_weight %>%
