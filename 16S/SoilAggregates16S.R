@@ -722,4 +722,37 @@ pheatmap(functions_filter[rownames(functions_filter) %in% abundantFunctions,],
          color=colorRampPalette(rev(brewer.pal(n = 11,name="RdYlBu")))(100),
          cutree_rows = 7)
 
+####
+install.packages('betapart')
+library(betapart)
+
+M.PA= data.frame(OTU.M.rare) %>% mutate_if(is.numeric, ~1 * (. != 0))
+rownames(M.PA)=rownames(OTU.M.rare)
+M.PA=M.PA[rowSums(M.PA)>0,]
+
+S.PA= data.frame(OTU.S.rare) %>% mutate_if(is.numeric, ~1 * (. != 0))
+rownames(S.PA)=rownames(OTU.S.rare)
+S.PA=S.PA[rowSums(S.PA)>0,]
+
+# get betapart objects
+ceram.s.core <- betapart.core(t(S.PA))
+ceram.m.core <- betapart.core(t(M.PA))
+dim(M.PA)
+# multiple site measures
+ceram.s.multi <- beta.multi(ceram.s.core)
+ceram.m.multi <- beta.multi(ceram.m.core)
+
+# sampling across equal sites
+ceram.s.samp <- beta.sample(ceram.s.core, sites=3, samples=100)
+ceram.m.samp <- beta.sample(ceram.m.core, sites=3, samples=100)
+# plotting the distributions of components
+dist.s <- ceram.s.samp$sampled.values
+dist.m <- ceram.m.samp$sampled.values
+
+plot(density(dist.s$beta.SOR), xlim=c(0,0.8), ylim=c(0, 160), xlab="Beta diversity", main="", lwd=3, col="#0072b2")
+lines(density(dist.s$beta.SNE), lty=1, lwd=2, col="#0072b2")
+lines(density(dist.s$beta.SIM), lty=2, lwd=2, col="#0072b2")
+lines(density(dist.m$beta.SOR), col="#009e73", lwd=3)
+lines(density(dist.m$beta.SNE), col="#009e73", lty=1, lwd=2)
+lines(density(dist.m$beta.SIM), col="#009e73", lty=2, lwd=2)
 
