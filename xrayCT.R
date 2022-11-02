@@ -2,8 +2,9 @@
 #' Part of the code for the analysis of the soil particle 
 #' surface area, volume and weight
 ###############################
+library(tidyverse)
 
-setwd('Documents/git/SoilAggregates/')
+setwd('~/Documents/git/SoilAggregates/')
 
 weight=read.delim('soilWeightXRAYCT.txt')
 

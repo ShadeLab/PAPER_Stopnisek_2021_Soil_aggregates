@@ -3,9 +3,21 @@ module load R/3.6.0-X11-20180604
 
 # Analysis in R
 # Read processing
-setwd("/mnt/home/stopnise/amoA_MiSeq_sequencing")
+#setwd("/mnt/home/stopnise/amoA_MiSeq_sequencing")
+setwd('~/Documents/git/SoilAggregates/')
+
+library(rstatix)
+library(ggpubr)
 library(dada2)
 library(phyloseq)
+library(tidyverse)
+library(btools)
+library(gt)
+library(Biostrings)
+library(vegan)
+library(pheatmap)
+library(RColorBrewer)
+library(metagMisc)
 
 path="~/amoA_MiSeq_sequencing/cutadapt_before_DADA2"
 
@@ -90,7 +102,8 @@ taxa_names(psAOA) <- paste0("ASV", seq(ntaxa(psAOA)))
 #' --clean removes the stop codon symbol * into X
 library(metagMisc)
 library(tidyverse)
-
+#saveRDS(psAOA, "~/Documents/git/SoilAggregates/AOA/AOAphyloseqObject.RDS")
+psAOA=readRDS("AOA/AOAphyloseqObject.RDS")
 AOA_table=phyloseq_to_df(psAOA, addtax=F)
 head(AOA_table)
 
@@ -116,14 +129,17 @@ AA.aoa_taxa$AAasv=paste0("AA.ASV", seq(length(AA.aoa_taxa$V2)))
 colnames(AA.aoa_taxa)=str_remove_all(colnames(AA.aoa_taxa),"_trim_filt_F.fastq.gz") 
 
 #Writing out the unique and filtered AA sequences for building phylogenetic tree
-write.table(data.frame(x=AA.aoa_taxa$AAasv, y=AA.aoa_taxa$V2),"~/Documents/git/SoilAggregates/AOA/AOAamino.txt", sep='\t')
+#write.table(data.frame(x=AA.aoa_taxa$AAasv, y=AA.aoa_taxa$V2),"~/Documents/git/SoilAggregates/AOA/AOAamino.txt", sep='\t')
 
 #' **************************************************
 #' Statistical analysis
 #' **************************************************
 
-#' Creating an ASV table (ASV based on the AA sequeces)
+#' Creating an ASV table (ASV based on the AA sequences)
 AOAtable=AA.aoa_taxa[-1] 
+
+#EXTRA
+AOAtable=AOA_table
 samples.out <- colnames(AOAtable)
 subject <- sapply(strsplit(samples.out, "_AOA"), `[`, 1)
 colnames(AOAtable)=subject
@@ -131,6 +147,10 @@ colnames(AOAtable)=subject
 AOAtable=as.data.frame(AOAtable) 
 rownames(AOAtable)=AOAtable$AAasv
 AOAtable$AAasv=NULL
+#EXTRA
+rownames(AOAtable)=AOAtable$OTU
+AOAtable$OTU=NULL
+
 
 AOAtable=as.matrix(AOAtable)
 
@@ -172,6 +192,22 @@ ShannonAOA <- ggplot(mapAOA, aes(x=as.factor(Size),y=Shannon, fill=Site)) +
   scale_color_manual(values = c("#009e73", "#0072b2")) + 
   labs(x='Size (mm)', y='Shannon', title= "AOA") +
   theme_classic()
+
+# checking if soil surface area or volume matters
+weightFraction=read.delim(file = 'Surface_volume_weight_indeces.txt', sep=' ')
+mapAOA_v2=mapAOA%>%
+  rownames_to_column('ID')
+extMap=left_join(mapAOA_v2,weightFraction) %>%
+  filter(!is.na(id_new))
+
+ggplot(extMap, aes(x=meanSV, y=Richness, col=Site, size=as.factor(Size), group=Site)) +
+  geom_point() +
+  scale_fill_manual(values = c("#009e73", "#0072b2")) + 
+  scale_color_manual(values = c("#009e73", "#0072b2")) + 
+  labs(x='surface:volume:weight ratio', y='Richness', title= "AOA") +
+  theme_classic() +
+  geom_smooth(method='glm')
+
 
 #' Alpha diversity statistics
 mapAOA %>%
@@ -460,6 +496,21 @@ stat.test.pd.aoa <- PD.aoa.df %>%
 stat.test.pd.aoa  
 # Difference between the MRC and SVERC only at 0.25 mm
 
+
+#PD with surface are size or volume?
+PD.aoa.df2=PD.aoa.df%>%
+  mutate(ID = sample_ID)
+PD.aoa.df2=PD.aoa.df2[,-1]
+extMap=left_join(PD.aoa.df2,weightFraction) %>%
+  filter(!is.na(id_new))
+
+ggplot(extMap, aes(x=meanSVW, y=PD, col=Site, size=as.factor(Size), group=Site)) +
+  geom_point() +
+  scale_fill_manual(values = c("#009e73", "#0072b2")) + 
+  scale_color_manual(values = c("#009e73", "#0072b2")) + 
+  labs(x='surface:volume:weight ratio', y='PD', title= "AOA") +
+  theme_classic() +
+  geom_smooth(method = 'glm', se = F)
 #######################################
 #' Distribution of ASVs by site and size
 
@@ -479,7 +530,7 @@ ASVaoa.abundant=ASVaoa.rare_nonZero[rowSums(ASVaoa.rare_nonZero)>3000,]
 
 pheatmap(ASVaoa.abundant[rownames(ASVaoa.abundant) %in% rownames(ASVaoa_prevalent),], 
          color=colorRampPalette(brewer.pal(n = 11,name="Oranges"))(8),
-         cutree_cols = 3)
+         cutree_cols = 2)
 
 
 #' Investigating if any AOA correlated with soil particles size
@@ -489,7 +540,186 @@ aoa_mtx=data.frame(t(AOAabun))
 aoa.cor.pearson = cor(aoa_mtx, mapAOA$Size, method = "pearson")
 data.frame(asv=rownames(aoa.cor.pearson), pearson=aoa.cor.pearson[,1]) %>%
   select(asv, pearson) %>%
-  filter(pearson < -0.5)
+  filter(pearson > 0.5)
+
+
+#M site only
+aoaM_mtx=data.frame(t(AOAabun)) %>% filter(str_detect(rownames(.), 'M'))
+aoaM.cor.pearson = cor(aoaM_mtx, mapAOA.M$Size, method = "pearson")
+aoaM.highcor=data.frame(asv=rownames(aoaM.cor.pearson), pearson=aoaM.cor.pearson[,1]) %>%
+  select(asv, pearson) %>%
+  filter(pearson > 0.7 | pearson < -0.7)%>%
+  mutate(Site='M')%>%
+  remove_rownames(.)
+
+mapAOA.M=mapAOA.M %>%
+  rownames_to_column('sampleID')
+
+aoaCorrM.plot=data.frame(sampleID=rownames(aoaM_mtx), aoaM_mtx) %>%
+  gather(asv, abun, -sampleID) %>%
+  filter(abun>0,
+         asv %in% aoaM.highcor$asv) %>%
+  left_join(mapAOA.M) %>%
+  left_join(aoaM.highcor) %>%
+  mutate(trend=if_else(pearson>0, "large", "small")) %>%
+  ggplot(aes(x=Size, y=abun, col=asv)) +
+  geom_point() +
+  geom_smooth(method = 'glm', se = F) +
+  theme_bw() +
+  scale_x_continuous(limits = c(0, 2), breaks = c(0,0.056, .18, .25,.5,1, 2))+
+  labs(x="Size (mm)", y='Relative abundance') +
+  facet_grid(~trend)
+
+#S site only
+aoaS_mtx=data.frame(t(AOAabun)) %>% filter(str_detect(rownames(.), 'S'))
+aoaS.cor.pearson = cor(aoaS_mtx, mapAOA.S$Size, method = "pearson")
+aoaS.highcor=data.frame(asv=rownames(aoaS.cor.pearson), pearson=aoaS.cor.pearson[,1]) %>%
+  select(asv, pearson) %>%
+  filter(pearson > 0.7 | pearson < -0.7) %>%
+  mutate(Site='S') %>%
+  remove_rownames(.)
+
+mapAOA.S=mapAOA.S %>%
+  rownames_to_column('sampleID')
+
+aoaCorrS.plot=data.frame(sampleID=rownames(aoaS_mtx), aoaS_mtx) %>%
+  gather(asv, abun, -sampleID) %>%
+  filter(abun>0,
+         asv %in% aoaS.highcor$asv) %>%
+  left_join(mapAOB.S) %>%
+  left_join(aoaS.highcor) %>%
+  mutate(trend=if_else(pearson>0, "large", "small")) %>%
+  ggplot(aes(x=Size, y=abun, col=asv)) +
+  geom_point() +
+  geom_smooth(method = 'glm', se = F) +
+  theme_bw() +
+  scale_x_continuous(limits = c(0, 2), breaks = c(0,0.056, .18, .25,.5,1, 2))+
+  labs(x="Size (mm)", y='Relative abundance') +
+  facet_grid(~trend)
+
+mapAOA=mapAOA %>%
+  rownames_to_column('sampleID')
+
+aoaCorrM=data.frame(sampleID=rownames(aoaM_mtx), aoaM_mtx) %>%
+  gather(asv, abun, -sampleID) %>%
+  filter(abun>0,
+         asv %in% aoaM.highcor$asv) %>%
+  left_join(mapAOA.M) %>%
+  left_join(aoaM.highcor) %>%
+  mutate(trend=if_else(pearson>0, "positive", "negative"))
+
+aoaCorrS=data.frame(sampleID=rownames(aoaS_mtx), aoaS_mtx) %>%
+  gather(asv, abun, -sampleID) %>%
+  filter(abun>0,
+         asv %in% aoaS.highcor$asv) %>%
+  left_join(mapAOA.S) %>%
+  left_join(aoaS.highcor) %>%
+  mutate(trend=if_else(pearson>0, "positive", "negative"))
+
+corrDataAOA=rbind(aoaCorrM[,c(1:5,22,23)],aoaCorrS[,c(1:5,22,23)])
+aoaCorrPlot=ggplot(data=corrDataAOA, 
+                   aes(x=Size, y=abun, col=asv, linetype=trend)) +
+  geom_point() +
+  geom_smooth(method = 'glm', se = F) +
+  theme_bw() +
+  scale_x_continuous(limits = c(0, 2), breaks = c(0, .25,.5,1, 2))+
+  scale_linetype_manual(values=c('dashed', 'solid'))+
+  labs(x="Size (mm)", y='Relative abundance') +
+  facet_grid(~Site)
+
+
+corrWtaxAOB=left_join(corrData,AAtax, by=c('asv'='AAasv'))
+
+
+
+#make a key for nucleotide and amino acid ASVs
+ASVkeyAOA=left_join(AA.aoa, AA.aoa_taxa[,c(1,44)]) %>%
+  filter(!(OTU %in% c("ASV924","ASV959",'ASV1021','ASV1059')))
+
+#add AOA taxonomy to it:
+blastResultaoa=read.delim("AOA/aoaRefhits.tsv")
+cladeTaxAOA=left_join(ASVkey, blastResult, by = c('OTU' = 'asv'))
+unique(cladeTax$cluster)
+
+cladeTax %>%
+  group_by(cluster) %>%
+  summarise(nASVs=length(unique(AAasv))) %>%
+  arrange(desc(nASVs))
+
+tmp=cladeTax %>%
+  group_by(AAasv, cluster) %>%
+  summarise(nClust=length(AAasv)) 
+
+AAtax=cladeTax[,c(2:3,10)] %>%
+  group_by(AAasv, cluster) %>%
+  summarise(seq=unique(V2))
+
+
+
+#############################
+#' Nestedness and turnover analysis using betapart package 
+library(betapart)
+
+colnames(asvAOA.S)[c(18,19,20)] = c("S_050_a", "S_050_b", "S_050_c")
+asvAOA.S <- asvAOA.S[,order(colnames(asvAOA.S))]
+
+aoa.M.PA= data.frame(asvAOA.M) %>% mutate_if(is.numeric, ~1 * (. != 0))
+rownames(aoa.M.PA)=rownames(asvAOA.M)
+aoa.M.PA=aoa.M.PA[rowSums(aoa.M.PA)>0,]
+
+aoa.S.PA= data.frame(asvAOA.S) %>% mutate_if(is.numeric, ~1 * (. != 0))
+rownames(aoa.S.PA)=rownames(asvAOA.S)
+aoa.S.PA=aoa.S.PA[rowSums(aoa.S.PA)>0,]
+
+# get betapart objects
+aoa.s.core <- betapart.core(t(aoa.S.PA))
+aoa.m.core <- betapart.core(t(aoa.M.PA))
+
+# multiple site measures
+aoa.s.multi <- beta.multi(aoa.s.core)
+aoa.m.multi <- beta.multi(aoa.m.core)
+
+# sampling across equal sites
+aoa.s.samp <- beta.sample(aoa.s.core, sites=6, samples=10000)
+aoa.m.samp <- beta.sample(aoa.m.core, sites=6, samples=10000)
+# plotting the distributions of components
+dist.s.aoa <- aoa.s.samp$sampled.values
+dist.m.aoa <- aoa.m.samp$sampled.values
+
+plot(density(dist.s.aoa$beta.SOR), xlim=c(0,0.8), ylim=c(0, 40), xlab="Beta diversity", main="", lwd=3, col="#0072b2")
+lines(density(dist.s.aoa$beta.SNE), lty=1, lwd=2, col="#0072b2") # nestedness
+lines(density(dist.s.aoa$beta.SIM), lty=2, lwd=2, col="#0072b2") # turnover
+lines(density(dist.m.aoa$beta.SOR), col="#009e73", lwd=3)
+lines(density(dist.m.aoa$beta.SNE), col="#009e73", lty=1, lwd=2) # nestedness
+lines(density(dist.m.aoa$beta.SIM), col="#009e73", lty=2, lwd=2) # turnover
+
+
+# using Pair-wise phylogenetic dissimilarities
+devtools::install_github("jfq3/QsRutils", build_vignettes = TRUE, force = TRUE)
+library(QsRutils)
+library(ape)
+sample_data(AOAp)
+pS=subset_samples(AOAp, Site=="S")
+pS_tmp=prune_taxa(taxa_sums(pS) > 0, pS) 
+Stree=phy_tree(pS_tmp)
+
+pM=subset_samples(AOAp, Site=="M")
+pM_tmp=prune_taxa(taxa_sums(pM) > 0, pM) 
+
+Mtree=phy_tree(pM_tmp) # unrooted tree 
+plot(Mtree)
+Mtree_root=ape::root(Mtree, outgroup="AA.ASV80")
+
+pM_rooted=QsRutils::root_phyloseq_tree(pM_tmp)
+Mtree=phy_tree(pM_rooted)
+Mtree=as.phylo(Mtree)
+
+class(Mtree)
+rownames(aoa.M.PA)  %in% Mtree$tip.label
+phylo.beta.multi(aoa.M.PA, Mtree_root, index.family="sorensen")
+phylo.beta.pair(aoa.S.PA, Stree, index.family="sorensen")
+
+
 
 
 

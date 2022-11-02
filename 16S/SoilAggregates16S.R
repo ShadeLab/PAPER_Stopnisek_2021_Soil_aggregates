@@ -16,8 +16,6 @@ library(pheatmap)
 library(metagenomeSeq)
 library(qiime2R)
 library(metagMisc)
-install.packages('devtools')
-devtools::install_github('twbattaglia/btools')
 library(btools)
 
 setwd('~/Documents/git/SoilAggregates/')
@@ -25,14 +23,15 @@ setwd('~/Documents/git/SoilAggregates/')
 #' Using data generated in Oct 2020
 #' OTU tables created using QIIME2, R1 only.
 
-otu=read.table("otu_table.txt", header = T, row.names = 1)
-tax=read.delim("taxonomy.tsv",row.names = 1)
-map=read.csv('metadata_table.csv', row.names = 1)
+otu=read.table("16S/otu_table.txt", header = T, row.names = 1)
+tax=read.delim("16S/taxonomy.tsv",row.names = 1)
+map=read.csv('16S/metadata_table.csv', row.names = 1)
 
-joinedDF=as_tibble(left_join(otu, tax))
-joined_filteredDF=joinedDF[joinedDF$OTUID %in% rownames(OTU.rare),]
-joined_filteredDF=select(joined_filteredDF, -neg1, -neg2, -Confidence, -OTUID)
-write_delim(joined_filteredDF, 'asv_tax.tsv')
+# joinedDF=as_tibble(left_join(otu, tax))
+# joined_filteredDF=joinedDF[joinedDF$OTUID %in% rownames(OTU.rare),]
+# joined_filteredDF=select(joined_filteredDF, -neg1, -neg2, -Confidence, -OTUID)
+# joined_filteredDF=write_delim(joined_filteredDF, 'asv_tax.tsv')
+joined_filteredDF=read_delim('16S/asv_tax.tsv')
 
 tax=tax[-2]
 tax_df <- colsplit(tax$Taxon, '; ', names =  c("Kingdom", "Phylum", "Class", 
@@ -199,7 +198,8 @@ physeq <- merge_phyloseq(phyloseq(OTU, TAX), SAM, TREE)
 PD <- estimate_pd(physeq) %>%
   rownames_to_column('sample_ID')
 
-mapPD=map_filtered
+mapPD=map_filtered %>%
+  rownames_to_column('sampleID')
 mapPD$sampleID
 
 PD %>%
@@ -452,11 +452,11 @@ summary(corASV)
 plot(matrix_abund$X698a6dec7e68092a0c5cb7e2612ed105 ~ map_filtered$Size_fraction,
      xlab="Size (mm)", ylab="Relative abundance", main="asv")
 
-data.frame(OTU=rownames(rel.abun.all), rel.abun.all) %>%
-  gather(sampleID, abun, -OTU) %>%
-  left_join(tax_filtered) %>%
-  left_join(map_filtered) %>%
-  group_by(OTU, Site, Size_fraction)
+# data.frame(OTU=rownames(rel.abun.all), rel.abun.all) %>%
+#   gather(sampleID, abun, -OTU) %>%
+#   left_join(tax_filtered) %>%
+#   left_join(map_filtered) %>%
+#   group_by(OTU, Site, Size_fraction)
 
 #################################
 #' Investigating the dynamics in AOA and OAB communities based on the abundance 
@@ -691,8 +691,8 @@ turnoverFig=total.all.melt %>%
 #' Functional potential of the microbiome
 #' We used FAPROTAX to predict potential functional guild in the system.
 library(pheatmap)
-functions <- read.delim('Documents/git/SoilAggregates/16S/func_table_norm.tsv', row.names = 1)
-rownames(functions_filt)
+functions <- read.delim('16S/func_table_norm.tsv', row.names = 1)
+
 #' filter out functions that are not present in the microbiome
 functions_filt=functions[rowSums(functions)>0,]
 #' remove animal and disease related functions including chemoheterotrophy and 

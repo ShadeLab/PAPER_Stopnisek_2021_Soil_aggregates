@@ -1,13 +1,26 @@
-module load GNU/7.3.0-2.30  OpenMPI/3.1.1-CUDA
-module load R/3.6.0-X11-20180604
+#module load GNU/7.3.0-2.30  OpenMPI/3.1.1-CUDA
+#module load R/3.6.0-X11-20180604
 
 # Analysis in R
-setwd("/mnt/home/stopnise/amoA_MiSeq_sequencing/AOBpart")
+#setwd("/mnt/home/stopnise/amoA_MiSeq_sequencing/AOBpart")
+
+setwd('~/Documents/git/SoilAggregates/')
+if(!require(devtools)) install.packages("devtools")
+devtools::install_github("kassambara/rstatix")
+library(rstatix)
+library(ggpubr)
 library(dada2)
 library(phyloseq)
-
-path="~/amoA_MiSeq_sequencing/AOBpart/cutadapt_before_DADA2"
-outpath="/mnt/research/ShadeLab/WorkingSpace/Stopnisek/Soil_aggregates"
+library(tidyverse)
+library(btools)
+library(gt)
+library(Biostrings)
+library(vegan)
+library(pheatmap)
+library(RColorBrewer)
+library(metagMisc)
+#path="~/amoA_MiSeq_sequencing/AOBpart/cutadapt_before_DADA2"
+#outpath="/mnt/research/ShadeLab/WorkingSpace/Stopnisek/Soil_aggregates"
 
 #list.files(path)
 
@@ -73,9 +86,6 @@ head(track)
 
 write.delim(x = track, 'Documents/git/SoilAggregates/AOB_dada2_readStat.txt')
 
-library(gt)
-library(dplyr)
-
 track = as.data.frame(track)
 track <- data.frame(sampleID = row.names(track), track)
 track = tibble::remove_rownames(track)
@@ -110,13 +120,12 @@ site <- substr(samples.out,1,1)
 samdf <- data.frame(Sample=samples.out, Site=site)
 write.table(samdf, 'map_AOB.txt', sep='\t') #add outside R soil size and replicate
 
-mapAOB=read.table('~/Documents/git/SoilAggregates/AOB/map_AOB.txt', sep='\t', header=T, row.names=1)
+mapAOB=read.table('AOB/map_AOB.txt', sep='\t', header=T, row.names=1)
 
 ps <- phyloseq::phyloseq(otu_table(asvTable, taxa_are_rows=FALSE), 
                          sample_data(mapAOB))
 
 #rename ASV from sequences to ASV#
-library(Biostrings)
 dna <- Biostrings::DNAStringSet(taxa_names(ps))
 names(dna) <- taxa_names(ps)
 ps <- merge_phyloseq(ps, dna)
@@ -130,11 +139,12 @@ ps
 #' -f 2 start from2nd base in the sequence
 #' --clean removes the stop codon symbol * into X
 #' Also convert .fa to .tab using seqkit fx2tab comand
-
+#saveRDS(ps, "~/Documents/git/SoilAggregates/AOB/AOBphyloseqObject.RDS")
+ps=readRDS("AOB/AOBphyloseqObject.RDS")
 AOB_table=phyloseq_to_df(ps, addtax=F)
 head(AOB_table)
 
-AAaob=read.table("Documents/git/SoilAggregates/AOB/ASV_AA_AOB.tab", header=F)
+AAaob=read.table("AOB/ASV_AA_AOB.tab", header=F)
 names(AAaob)[1]='OTU'
 
 AA_aob_taxa=AAaob %>% 
@@ -158,34 +168,63 @@ write_delim(AA_aob_taxa, '~/Documents/git/SoilAggregates/AOB/AOB_AA_table.txt')
 #' **************************************************
 #' Statistical analysis
 #' **************************************************
+AOB_table_filt=AOB_table %>%filter(!(OTU %in% c("ASV924","ASV959",'ASV1021','ASV1059')))
 
 #' Creating an ASV table (ASV based on the AA sequeces)
-AA_aob_taxa=read.delim('Documents/git/SoilAggregates/AOB/AOB_AA_table.txt',sep = ' ')
-mapAOB_raw=read.table('Documents/git/SoilAggregates/AOB/map_AOB.txt', sep='\t', header=T, row.names=1)
+AA_aob_taxa=read.delim('AOB/AOB_AA_table.txt',sep = ' ')
+mapAOB_raw=read.table('AOB/map_AOB.txt', sep='\t', header=T, row.names=1)
+mapAOB=read.table('AOB/map_AOB.txt', sep='\t', header=T, row.names=1)
+
+#make a key for nucleotide and amino acid ASVs
+ASVkey=left_join(AAaob, AA_aob_taxa[,c(1,44)]) %>%
+  filter(!(OTU %in% c("ASV924","ASV959",'ASV1021','ASV1059')))
+
+#add AOB taxonomy to it:
+blastResult=read.delim("AOB/aobRefhits.tsv")
+cladeTax=left_join(ASVkey, blastResult, by = c('OTU' = 'asv'))
+unique(cladeTax$cluster)
+
+cladeTax %>%
+  group_by(cluster) %>%
+  summarise(nASVs=length(unique(AAasv))) %>%
+  arrange(desc(nASVs))
+
+tmp=cladeTax %>%
+  group_by(AAasv, cluster) %>%
+  summarise(nClust=length(AAasv)) 
+
+AAtax=cladeTax[,c(2:3,10)] %>%
+  group_by(AAasv, cluster) %>%
+  summarise(seq=unique(V2))
 
 AOBtable=AA_aob_taxa[-1] #remove the sequences
+
+#EXTRA
+AOBtable=AOB_table_filt
 
 #' need to rename the colnames and remove anything following "_AOB"
 samples.out <- colnames(AOBtable)
 subject <- sapply(strsplit(samples.out, "_AOB"), `[`, 1)
 colnames(AOBtable)=subject
 rownames(AOBtable)=AOBtable$AAasv
+#EXTRA
+rownames(AOBtable)=AOBtable$OTU
+AOBtable$OTU=NULL
 AOBtable$AAasv=NULL
 AOBtable=as.matrix(AOBtable)
 
 #' same for the map file
 rownames(mapAOB) <- sapply(strsplit(rownames(mapAOB), "_AOB"), `[`, 1)
 
-library(vegan)
 set.seed(533)
 asvAOB=AOBtable
-rownames(asvAOB)=asvAOB$AAasv
-asvAOB$AAasv=NULL
+#rownames(asvAOB)=asvAOB$AAasv
+#asvAOB$AAasv=NULL
 asvAOB.rare <- t(rrarefy(t(asvAOB), 40000)) 
 AOBabun <- decostand(asvAOB.rare, method = 'total', MARGIN = 2)
 rownames(mapAOB) <- sapply(strsplit(rownames(mapAOB), "_trim"), `[`, 1)
 rownames(mapAOB) == colnames(AOBabun)
-length(rownames(ASVaob.rare))
+#length(rownames(ASVaob.rare))
 #' Alpha diversity measurements
 AOBs <- specnumber(asvAOB.rare,MARGIN=2)
 AOBh <- vegan::diversity(t(asvAOB.rare), "shannon")
@@ -374,9 +413,9 @@ pcoa.J.asvAOB.S <- ggplot(mapAOB.S, aes(x=Axis1.J.S, y=Axis2.J.S, size=Size, col
        alpha='Size (mm)', title='Jaccard - AOB')
 
 # Create a plot combining all PCoA graphs (AOA and AOB, Bray-Curtis)
-ggarrange(pcoa.BC.asvAOA.M,pcoa.BC.asvAOA.S, 
-          pcoa.BC.asvAOB.M,pcoa.BC.asvAOB.S, 
-          labels = c("A", "B", "C", "D"), nrow = 2, ncol = 2)
+# ggarrange(pcoa.BC.asvAOA.M,pcoa.BC.asvAOA.S, 
+#           pcoa.BC.asvAOB.M,pcoa.BC.asvAOB.S, 
+#           labels = c("A", "B", "C", "D"), nrow = 2, ncol = 2)
 
 #' Testing the effect of size, site and chemical parameters on the community 
 #' using PERMANOVA
@@ -410,14 +449,14 @@ adonis(asvAOB.M.BC.2mm~mapAOB.M.2$NH4)# R2=0.087, p=0.172
 
 #'MRC 
 ## Calculate multivariate dispersions
-mod.M.aob <- betadisper(vegdist(t(asvAOB.M), method="bray"), mapM$Size)
+mod.M.aob <- betadisper(vegdist(t(asvAOB.M), method="bray"), mapAOB.M$Size)
 mod.M.aob
 
 ## Perform test
 anova(mod.M.aob)
 
 ## Permutation test for F
-permutest(mod.M.aob, pairwise = TRUE, permutations = 99)
+permutest(mod.M.aob, pairwise = TRUE, permutations = 999)
 
 #' Tukey's Honest Significant Differences
 (mod.M.aob.HSD <- TukeyHSD(mod.M.aob))
@@ -430,6 +469,8 @@ plot(mod.M.aob, ellipse = TRUE, hull = FALSE, seg.lty = "dashed") # 1 sd data el
 #' Draw a boxplot of the distances to centroid for each group
 boxplot(mod.M.aob)
 
+adonis2(vegdist(t(asvAOB.M), method="bray")~mapAOB.M$Size)
+
 #' SVERC 
 ## Calculate multivariate dispersions
 mod.S.aob <- betadisper(asvAOB.S.BC, mapAOB.S$Size)
@@ -439,7 +480,7 @@ mod.S.aob
 anova(mod.S.aob)
 
 #' Permutation test for F
-permutest(mod.S.aob, pairwise = TRUE, permutations = 99)
+permutest(mod.S.aob, pairwise = TRUE, permutations = 999)
 
 #' Tukey's Honest Significant Differences
 (mod.S.aob.HSD <- TukeyHSD(mod.S.aob))
@@ -455,12 +496,6 @@ boxplot(mod.S.aob)
 
 #################################################
 #' Calculating the phylogenetic diversity (Faith's diversity index (PD))
-library(btools)
-
-tax_df=tax_filtered[tax_filtered$OTU %in% rownames(OTU.rare),]
-rownames(tax_df)=tax_df$OTU
-tax_df$OTU=NULL
-
 TREEaob = read_tree("AOB/AOB_amino.tre")
 AOBp=phyloseq(otu_table(as.matrix(asvAOB.rare), taxa_are_rows = T), sample_data(mapAOB), TREEaob)
 
@@ -492,7 +527,7 @@ summary(PD.aob.site.aov)
 summary(PD.aob.size.aov)
 summary(PD.aob.size.M.aov)
 summary(PD.aob.size.S.aov)
-#' Significant difference between istes but nothing else
+#' Significant difference between sites but nothing else. 
 
 #' Does phylogenetic signal/depth differ between soils and different soil 
 #' particle sizes?
@@ -506,7 +541,6 @@ stat.test.pd.aob
 
 #######################################
 #' Distribution of ASVs by site and size
-
 pheatmap(asvAOB.rare, 
          color=colorRampPalette(brewer.pal(n = 11,name="Oranges"))(100),
          cutree_cols = 2)
@@ -532,3 +566,90 @@ summary(cor.aobASV116)
 
 plot(aob_mtx$AA.ASV116 ~ mapAOB$Size,
      xlab="Size (mm)", ylab="Relative abundance", main="AA.ASV116")
+
+#M site only
+aobM_mtx=data.frame(t(AOBabun)) %>% filter(str_detect(rownames(.), 'M'))
+aobM.cor.pearson = cor(aobM_mtx, mapAOB.M$Size, method = "pearson")
+aobM.highcor=data.frame(asv=rownames(aobM.cor.pearson), pearson=aobM.cor.pearson[,1]) %>%
+  select(asv, pearson) %>%
+  filter(pearson > 0.7 | pearson < -0.7)%>%
+  mutate(Site='M')%>%
+  remove_rownames(.)
+
+mapAOB.M=mapAOB.M %>%
+  rownames_to_column('sampleID')
+
+aobCorrM.plot=data.frame(sampleID=rownames(aobM_mtx), aobM_mtx) %>%
+  gather(asv, abun, -sampleID) %>%
+  filter(abun>0,
+         asv %in% aobM.highcor$asv) %>%
+  left_join(mapAOB.M) %>%
+  left_join(aobM.highcor) %>%
+  mutate(trend=if_else(pearson>0, "large", "small")) %>%
+  ggplot(aes(x=Size, y=abun, col=asv)) +
+  geom_point() +
+  geom_smooth(method = 'glm', se = F) +
+  theme_bw() +
+  scale_x_continuous(limits = c(0, 2), breaks = c(0,0.056, .18, .25,.5,1, 2))+
+  labs(x="Size (mm)", y='Relative abundance') +
+  facet_grid(~trend)
+
+#S site only
+aobS_mtx=data.frame(t(AOBabun)) %>% filter(str_detect(rownames(.), 'S'))
+aobS.cor.pearson = cor(aobS_mtx, mapAOB.S$Size, method = "pearson")
+aobS.highcor=data.frame(asv=rownames(aobS.cor.pearson), pearson=aobS.cor.pearson[,1]) %>%
+  select(asv, pearson) %>%
+  filter(pearson > 0.7 | pearson < -0.7) %>%
+  mutate(Site='S') %>%
+  remove_rownames(.)
+
+mapAOB.S=mapAOB.S %>%
+  rownames_to_column('sampleID')
+
+aobCorrS.plot=data.frame(sampleID=rownames(aobS_mtx), aobS_mtx) %>%
+  gather(asv, abun, -sampleID) %>%
+  filter(abun>0,
+         asv %in% aobS.highcor$asv) %>%
+  left_join(mapAOB.S) %>%
+  left_join(aobS.highcor) %>%
+  mutate(trend=if_else(pearson>0, "large", "small")) %>%
+  ggplot(aes(x=Size, y=abun, col=asv)) +
+  geom_point() +
+  geom_smooth(method = 'glm', se = F) +
+  theme_bw() +
+  scale_x_continuous(limits = c(0, 2), breaks = c(0,0.056, .18, .25,.5,1, 2))+
+  labs(x="Size (mm)", y='Relative abundance') +
+  facet_grid(~trend)
+
+mapAOB=mapAOB %>%
+  rownames_to_column('sampleID')
+
+aobCorrM=data.frame(sampleID=rownames(aobM_mtx), aobM_mtx) %>%
+  gather(asv, abun, -sampleID) %>%
+  filter(abun>0,
+         asv %in% aobM.highcor$asv) %>%
+  left_join(mapAOB.M) %>%
+  left_join(aobM.highcor) %>%
+  mutate(trend=if_else(pearson>0, "positive", "negative"))
+
+aobCorrS=data.frame(sampleID=rownames(aobS_mtx), aobS_mtx) %>%
+  gather(asv, abun, -sampleID) %>%
+  filter(abun>0,
+         asv %in% aobS.highcor$asv) %>%
+  left_join(mapAOB.S) %>%
+  left_join(aobS.highcor) %>%
+  mutate(trend=if_else(pearson>0, "positive", "negative"))
+
+corrData=rbind(aobCorrM[,c(1:5,22,23)],aobCorrS[,c(1:5,22,23)])
+aobCorrPlot=ggplot(data=corrData, 
+                   aes(x=Size, y=abun, col=asv, linetype=trend)) +
+  geom_point() +
+  geom_smooth(method = 'glm', se = F) +
+  theme_bw() +
+  scale_x_continuous(limits = c(0, 2), breaks = c(0, .25,.5,1, 2))+
+  scale_linetype_manual(values=c('dashed', 'solid'))+
+  labs(x="Size (mm)", y='Relative abundance') +
+  facet_grid(~Site)
+
+
+corrWtax=left_join(corrData,AAtax, by=c('asv'='AAasv'))
